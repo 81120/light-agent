@@ -1,9 +1,9 @@
-defmodule Toyagent.MixProject do
+defmodule LightAgent.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :toyagent,
+      app: :light_agent,
       version: "0.1.0",
       elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
@@ -15,7 +15,7 @@ defmodule Toyagent.MixProject do
   def application do
     [
       extra_applications: [:logger],
-      mod: {Toyagent.Application, []}
+      mod: {LightAgent.Application, []}
     ]
   end
 
