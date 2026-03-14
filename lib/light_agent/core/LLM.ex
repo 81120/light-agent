@@ -1,13 +1,9 @@
 defmodule LightAgent.Core.LLM do
   require Logger
 
-  @api_key Application.compile_env(:light_agent, Core.LLM)[:api_key]
-  @base_url Application.compile_env(:light_agent, Core.LLM)[:base_url]
-  @model Application.compile_env(:light_agent, Core.LLM)[:model]
-
   def call(messages, tools \\ []) do
     body = %{
-      model: @model,
+      model: model(),
       messages: messages,
       tools: tools,
       temperature: 1
@@ -18,10 +14,10 @@ defmodule LightAgent.Core.LLM do
     )
 
     res =
-      Req.post!(@base_url,
+      Req.post!(base_url(),
         json: body,
         headers: [
-          {"Authorization", "Bearer #{@api_key}"}
+          {"Authorization", "Bearer #{api_key()}"}
         ],
         receive_timeout: 60000
       ).body
@@ -29,5 +25,17 @@ defmodule LightAgent.Core.LLM do
     Logger.debug("LLM Response: #{Jason.encode!(res, pretty: true)}")
 
     res
+  end
+
+  defp api_key do
+    Application.fetch_env!(:light_agent, Core.LLM)[:api_key]
+  end
+
+  defp base_url do
+    Application.fetch_env!(:light_agent, Core.LLM)[:base_url]
+  end
+
+  defp model do
+    Application.fetch_env!(:light_agent, Core.LLM)[:model]
   end
 end
