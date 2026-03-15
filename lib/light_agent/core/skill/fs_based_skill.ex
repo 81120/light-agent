@@ -13,6 +13,7 @@ defmodule LightAgent.Core.Skill.FsBasedSkill do
     你可以使用.agent/skills目录下的以下工具来回答问题：
     #{skills_meta}
     你可以在需要的时候读取对应skill目录下的SKILL.md文件，来获取该工具的详细描述和使用方式。
+    如果有执行skill中的script的需求，你需要先cd到对应skill目录下，再执行script。
     """
   end
 

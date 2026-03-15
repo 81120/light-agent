@@ -7,7 +7,8 @@ defmodule LightAgent.Core.Skill.Runner do
       LightAgent.Skills.Location,
       LightAgent.Skills.Weather,
       LightAgent.Skills.Filesystem,
-      LightAgent.Skills.RunCommand
+      LightAgent.Skills.RunCommand,
+      LightAgent.Skills.LoadFsSkill
     ]
   end
 
