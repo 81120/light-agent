@@ -1,25 +1,25 @@
 # LightAgent
 
-一个轻量级的 AI Agent 框架，基于 Elixir/OTP 构建，支持工具调用（Tool Calling）、多会话管理和技能扩展。
+A lightweight AI Agent framework built on Elixir/OTP, supporting Tool Calling, multi-session management, and skill extensions.
 
-## 项目介绍
+## Introduction
 
-LightAgent 是一个使用 Elixir 语言开发的 AI Agent 框架，具有以下特点：
+LightAgent is an AI Agent framework developed in Elixir with the following features:
 
-- **多会话管理**：支持创建、切换、暂停、恢复和删除多个独立会话
-- **会话持久化**：会话历史自动保存到文件系统，支持断点续聊
-- **CLI 界面**：提供丰富的命令行界面，支持多种交互命令
-- **工具调用支持**：支持 OpenAI 兼容的 Function Calling 协议
-- **参数验证**：基于 Ecto Schema 的工具参数验证，确保类型安全
-- **双类型技能系统**：
-  - **代码型技能（Code-Based Skills）**：通过 Elixir 模块定义，编译时注册
-  - **文件系统型技能（FS-Based Skills）**：通过文件系统动态加载，支持运行时扩展
-- **Token 使用统计**：实时跟踪和统计 Token 使用情况
-- **并发执行**：工具调用支持并发执行，提升效率
+- **Multi-Session Management**: Create, switch, pause, resume, and delete multiple independent sessions
+- **Session Persistence**: Session history is automatically saved to the filesystem, supporting resume from breakpoints
+- **CLI Interface**: Rich command-line interface with various interactive commands
+- **Tool Calling Support**: Compatible with OpenAI Function Calling protocol
+- **Parameter Validation**: Type-safe tool parameter validation based on Ecto Schema
+- **Dual-Type Skill System**:
+  - **Code-Based Skills**: Defined through Elixir modules, registered at compile time
+  - **FS-Based Skills**: Dynamically loaded through the filesystem, supporting runtime extensions
+- **Token Usage Tracking**: Real-time tracking and statistics of Token usage
+- **Concurrent Execution**: Tool calls support concurrent execution for improved efficiency
 
-## 设计架构
+## Architecture
 
-### 整体架构
+### Overall Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -43,7 +43,7 @@ LightAgent 是一个使用 Elixir 语言开发的 AI Agent 框架，具有以下
 │  │  │              LLM & Usage                     │     │ │
 │  │  │  ┌───────────┐  ┌──────────────────────┐    │     │ │
 │  │  │  │    LLM    │  │    Usage Tracking    │    │     │ │
-│  │  │  │ (API调用) │  │   (Token 统计)       │    │     │ │
+│  │  │  │ (API Call)│  │   (Token Statistics) │    │     │ │
 │  │  │  └───────────┘  └──────────────────────┘    │     │ │
 │  │  └──────────────────────────────────────────────┘     │ │
 │  └────────────────────────────────────────────────────────┘ │
@@ -51,15 +51,15 @@ LightAgent 是一个使用 Elixir 语言开发的 AI Agent 框架，具有以下
 │                         ▼                                    │
 │  ┌────────────────────────────────────────────────────────┐ │
 │  │           LightAgent.Core.Skill.Runner                 │ │
-│  │                  (技能执行器)                           │ │
+│  │                  (Skill Executor)                      │ │
 │  │                                                        │ │
 │  │  ┌──────────────────┐  ┌────────────────────────────┐ │ │
 │  │  │ CodeBasedSkill   │  │ FsBasedSkill               │ │ │
-│  │  │ (编译时注册)     │  │ (运行时加载)               │ │ │
+│  │  │ (Compile-time)   │  │ (Runtime Loading)          │ │ │
 │  │  │                  │  │                            │ │ │
 │  │  │ ┌──────────────┐ │  │ ┌────────────────────────┐ │ │ │
 │  │  │ │ ToolArgs     │ │  │ │ LoadFsSkill            │ │ │ │
-│  │  │ │ Validator    │ │  │ │ (动态加载)             │ │ │ │
+│  │  │ │ Validator    │ │  │ │ (Dynamic Loading)      │ │ │ │
 │  │  │ └──────────────┘ │  │ └────────────────────────┘ │ │ │
 │  │  └──────────────────┘  └────────────────────────────┘ │ │
 │  └────────────────────────────────────────────────────────┘ │
@@ -74,39 +74,39 @@ LightAgent 是一个使用 Elixir 语言开发的 AI Agent 框架，具有以下
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### 核心组件
+### Core Components
 
-#### 1. Worker（工作器）
+#### 1. Worker
 
-[worker.ex](lib/light_agent/core/worker.ex) 是 Agent 的核心控制器：
+[worker.ex](lib/light_agent/core/worker.ex) is the core controller of the Agent:
 
-- 作为 GenServer 运行，维护 Agent 状态
-- 管理多个会话的生命周期
-- 协调 LLM 调用、会话管理和工具执行
-- 实现递归执行循环，直到任务完成
+- Runs as a GenServer, maintaining Agent state
+- Manages the lifecycle of multiple sessions
+- Coordinates LLM calls, session management, and tool execution
+- Implements recursive execution loop until task completion
 
-#### 2. Session Management（会话管理）
+#### 2. Session Management
 
-采用动态会话架构：
+Adopts a dynamic session architecture:
 
-- **SessionServer**：每个会话独立运行的 GenServer，维护会话状态和历史
-- **SessionMemoryStore**：负责会话历史的持久化存储，使用 Markdown 格式
-- **SessionSupervisor**：动态监督器，管理所有会话进程
-- **SessionMemoryCompactor**：定期压缩会话历史，优化存储空间
+- **SessionServer**: Independent GenServer for each session, maintaining session state and history
+- **SessionMemoryStore**: Responsible for persistent storage of session history using Markdown format
+- **SessionSupervisor**: Dynamic supervisor managing all session processes
+- **SessionMemoryCompactor**: Periodically compacts session history to optimize storage space
 
-会话特性：
+Session Features:
 
-- 支持创建、切换、暂停、恢复、删除会话
-- 会话历史自动持久化到 `agent/session_memory/` 目录
-- 支持断点续聊，重启应用后自动恢复会话
+- Support for creating, switching, pausing, resuming, and deleting sessions
+- Session history automatically persisted to `agent/session_memory/` directory
+- Support for resume from breakpoints, automatic session recovery after application restart
 
-#### 3. Skill System（技能系统）
+#### 3. Skill System
 
-支持两种技能类型：
+Supports two types of skills:
 
-**Code-Based Skills（代码型技能）**
+**Code-Based Skills**
 
-通过 Elixir 模块定义，使用 Ecto Schema 定义参数：
+Defined through Elixir modules using Ecto Schema for parameters:
 
 ```elixir
 defmodule LightAgent.Skills.Location do
@@ -130,55 +130,55 @@ defmodule LightAgent.Skills.Location do
     def required_fields, do: [:city]
   end
 
-  @doc "获取指定城市的经纬度"
+  @doc "Get latitude and longitude for a specified city"
   deftool(:get_location, schema: GetLocationParams)
 
   @impl true
   def exec(:get_location, %{"city" => city}) do
-    # 实现逻辑
+    # Implementation logic
   end
 end
 ```
 
-**FS-Based Skills（文件系统型技能）**
+**FS-Based Skills**
 
-通过文件系统定义，支持动态扩展：
+Defined through the filesystem, supporting dynamic extensions:
 
 ```
 agent/skills/
 └── greet_skill/
-    ├── SKILL.md          # 技能描述和使用说明
+    ├── SKILL.md          # Skill description and usage instructions
     └── scripts/
-        └── greet.js      # 实现脚本
+        └── greet.js      # Implementation script
 ```
 
-**参数验证**
+**Parameter Validation**
 
-使用 Ecto Changeset 进行参数验证：
+Uses Ecto Changeset for parameter validation:
 
-- 类型检查
-- 必填字段验证
-- 自定义验证规则
-- 自动生成 JSON Schema
+- Type checking
+- Required field validation
+- Custom validation rules
+- Automatic JSON Schema generation
 
-#### 4. CLI Interface（命令行界面）
+#### 4. CLI Interface
 
-提供丰富的命令行交互：
+Provides rich command-line interaction:
 
-- `/help` - 显示帮助面板
-- `/new` - 创建并切换到新会话
-- `/sessions` - 列出所有会话
-- `/pause` - 暂停当前会话
-- `/switch <id>` - 切换到指定会话
-- `/resume <id>` - 恢复指定会话
-- `/delete <id>` - 删除指定会话
-- `/history` - 显示当前会话历史
-- `/usage` - 显示 Token 使用统计
-- `/exit` - 退出程序
+- `/help` - Display help panel
+- `/new` - Create and switch to a new session
+- `/sessions` - List all sessions
+- `/pause` - Pause current session
+- `/switch <id>` - Switch to specified session
+- `/resume <id>` - Resume specified session
+- `/delete <id>` - Delete specified session
+- `/history` - Display current session history
+- `/usage` - Display Token usage statistics
+- `/exit` - Exit program
 
-#### 5. Usage Tracking（使用统计）
+#### 5. Usage Tracking
 
-实时跟踪和统计 Token 使用情况：
+Real-time tracking and statistics of Token usage:
 
 - Prompt tokens
 - Completion tokens
@@ -186,10 +186,10 @@ agent/skills/
 - Steps count
 - Missing usage steps
 
-### 执行流程
+### Execution Flow
 
 ```
-用户输入
+User Input
     │
     ▼
 ┌─────────────┐
@@ -209,39 +209,41 @@ agent/skills/
                           │
                           ▼
                     ┌───────────┐
-                    │ 有工具调用？│
+                    │Tool Calls?│
                     └───────────┘
                      │         │
-                    是        否
+                   Yes        No
                      │         │
                      ▼         ▼
             ┌──────────────┐  ┌──────────┐
-            │ Skill.Runner │  │ 返回结果 │
-            │  执行工具    │  └──────────┘
+            │ Skill.Runner │  │  Return  │
+            │ Execute Tools│  │  Result  │
+            └──────────────┘  └──────────┘
+                     │
+                     ▼
+            ┌──────────────┐
+            │  Validate    │
+            │  Parameters  │
             └──────────────┘
                      │
                      ▼
             ┌──────────────┐
-            │ 参数验证     │
+            │    Update    │
+            │   History    │
+            │  Persist     │
             └──────────────┘
                      │
                      ▼
-            ┌──────────────┐
-            │ 更新 History │
-            │ 持久化会话   │
-            └──────────────┘
-                     │
-                     ▼
-                递归调用
+              Recursive Call
 ```
 
-## API 用法
+## API Usage
 
-### 基本使用
+### Basic Usage
 
-#### 1. 配置 LLM
+#### 1. Configure LLM
 
-创建 `.env` 文件：
+Create a `.env` file:
 
 ```bash
 API_KEY=your-api-key
@@ -249,60 +251,60 @@ BASE_URL=https://api.openai.com/v1/chat/completions
 MODEL=gpt-4
 ```
 
-配置文件会自动加载（开发环境和测试环境）。
+Configuration files are automatically loaded (in development and test environments).
 
-#### 2. 启动 Agent
+#### 2. Start Agent
 
-**方式一：使用 CLI 界面**
+**Method 1: Using CLI Interface**
 
 ```bash
-# 启动交互式 CLI
+# Start interactive CLI
 iex -S mix
 
-# 在 CLI 中输入
+# In CLI, enter
 iex> LightAgent.CLI.CommandRouter.start()
 ```
 
-**方式二：编程方式**
+**Method 2: Programmatic Way**
 
 ```elixir
-# 启动应用
+# Start application
 {:ok, _pid} = Application.ensure_all_started(:light_agent)
 
-# 运行 Agent
-result = LightAgent.Core.Worker.run_agent("北京今天天气怎么样？")
+# Run Agent
+result = LightAgent.Core.Worker.run_agent("What's the weather in Beijing today?")
 
-# 分步执行
-{:running, tool_results, usage} = LightAgent.Core.Worker.run_agent_step("你好")
+# Step-by-step execution
+{:running, tool_results, usage} = LightAgent.Core.Worker.run_agent_step("Hello")
 {:done, content, usage} = LightAgent.Core.Worker.run_agent_step()
 ```
 
-### 会话管理 API
+### Session Management API
 
 ```elixir
-# 创建新会话
+# Create new session
 {:ok, session_id} = LightAgent.Core.Worker.new_session()
 
-# 列出所有会话
+# List all sessions
 sessions = LightAgent.Core.Worker.list_sessions()
 # [%{id: "init", status: :active, current: true}, ...]
 
-# 切换会话
+# Switch session
 :ok = LightAgent.Core.Worker.switch_session(session_id)
 
-# 暂停当前会话
+# Pause current session
 {:ok, session_id} = LightAgent.Core.Worker.pause_current_session()
 
-# 恢复会话
+# Resume session
 :ok = LightAgent.Core.Worker.resume_session(session_id)
 
-# 删除会话
+# Delete session
 {:ok, current_session_id} = LightAgent.Core.Worker.delete_session(session_id)
 
-# 查看当前会话历史
+# View current session history
 history = LightAgent.Core.Worker.current_history()
 
-# 查看 Token 使用统计
+# View Token usage statistics
 usage = LightAgent.Core.Worker.current_token_usage()
 # %{
 #   prompt_tokens: 1000,
@@ -313,16 +315,16 @@ usage = LightAgent.Core.Worker.current_token_usage()
 # }
 ```
 
-### 创建自定义技能
+### Creating Custom Skills
 
-#### 方式一：代码型技能
+#### Method 1: Code-Based Skills
 
-创建新的技能模块：
+Create a new skill module:
 
 ```elixir
 # lib/light_agent/skills/my_skill.ex
 defmodule LightAgent.Skills.MySkill do
-  @moduledoc "技能描述"
+  @moduledoc "Skill description"
 
   use LightAgent.Core.Skill.CodeBasedSkill
 
@@ -346,18 +348,18 @@ defmodule LightAgent.Skills.MySkill do
     def required_fields, do: [:param1]
   end
 
-  @doc "工具描述"
+  @doc "Tool description"
   deftool(:my_function, schema: MyFunctionParams)
 
   @impl true
   def exec(:my_function, %{"param1" => value, "param2" => num}) do
-    # 实现逻辑
-    "处理结果: #{value}, #{num}"
+    # Implementation logic
+    "Result: #{value}, #{num}"
   end
 end
 ```
 
-然后在 [runner.ex](lib/light_agent/core/skill/runner.ex) 中注册：
+Then register in [runner.ex](lib/light_agent/core/skill/runner.ex):
 
 ```elixir
 def list_skills do
@@ -367,14 +369,14 @@ def list_skills do
     LightAgent.Skills.Filesystem,
     LightAgent.Skills.RunCommand,
     LightAgent.Skills.LoadFsSkill,
-    LightAgent.Skills.MySkill  # 添加新技能
+    LightAgent.Skills.MySkill  # Add new skill
   ]
 end
 ```
 
-#### 方式二：文件系统型技能
+#### Method 2: FS-Based Skills
 
-在 `agent/skills/` 目录下创建技能：
+Create skill in `agent/skills/` directory:
 
 ```
 agent/skills/
@@ -384,65 +386,65 @@ agent/skills/
         └── main.py
 ```
 
-**SKILL.md 格式：**
+**SKILL.md Format:**
 
 ```markdown
 ---
 name: my_skill
-description: 技能描述
+description: Skill description
 ---
 
 # My Skill
 
-## 使用步骤
+## Usage Steps
 
-1. 准备参数
-2. 运行脚本 `python scripts/main.py <args>`
-3. 处理输出
+1. Prepare parameters
+2. Run script `python scripts/main.py <args>`
+3. Process output
 
-## 示例
+## Example
 
 \`\`\`bash
 python scripts/main.py "hello"
 \`\`\`
 ```
 
-使用 LoadFsSkill 工具动态加载：
+Use LoadFsSkill tool to dynamically load:
 
 ```elixir
 LightAgent.Skills.LoadFsSkill.exec(:load_fs_skill, %{"skill_name" => "my_skill"})
 ```
 
-### 内置技能
+### Built-in Skills
 
-#### Location（位置查询）
+#### Location
 
-- `get_location(city)` - 获取城市经纬度
+- `get_location(city)` - Get city latitude and longitude
 
-#### Weather（天气查询）
+#### Weather
 
-- `get_weather(latitude, longitude)` - 获取指定位置的天气
+- `get_weather(latitude, longitude)` - Get weather for specified location
 
-#### Filesystem（文件操作）
+#### Filesystem
 
-- `read_file(path)` - 读取文件内容
-- `write_file(path, content)` - 写入文件
+- `read_file(path)` - Read file content
+- `write_file(path, content)` - Write to file
 
-#### RunCommand（命令执行）
+#### RunCommand
 
-- `run_command(command)` - 执行 shell 命令
+- `run_command(command)` - Execute shell command
 
-#### LoadFsSkill（动态加载技能）
+#### LoadFsSkill
 
-- `load_fs_skill(skill_name)` - 动态加载文件系统型技能
+- `load_fs_skill(skill_name)` - Dynamically load filesystem-based skill
 
-### LLM 调用 API
+### LLM Call API
 
 ```elixir
-# 直接调用 LLM
+# Direct LLM call
 messages = [
-  %{"role" => "system", "content" => "你是一个助手"},
-  %{"role" => "user", "content" => "你好"}
+  %{"role" => "system", "content" => "You are an assistant"},
+  %{"role" => "user", "content" => "Hello"}
 ]
 
 tools = LightAgent.Core.Skill.Runner.build_tools_schema()
@@ -450,11 +452,11 @@ tools = LightAgent.Core.Skill.Runner.build_tools_schema()
 {:ok, response} = LightAgent.Core.LLM.call(messages, tools)
 ```
 
-## 配置
+## Configuration
 
-### Agent 配置
+### Agent Configuration
 
-在 `config/config.exs` 中配置：
+Configure in `config/config.exs`:
 
 ```elixir
 import Config
@@ -462,9 +464,9 @@ import Config
 config :light_agent, :agent_external_root, "agent"
 ```
 
-### LLM 配置
+### LLM Configuration
 
-在 `.env` 文件中配置：
+Configure in `.env` file:
 
 ```bash
 API_KEY=your-api-key
@@ -472,133 +474,133 @@ BASE_URL=https://api.openai.com/v1/chat/completions
 MODEL=gpt-4
 ```
 
-### Agent 上下文配置
+### Agent Context Configuration
 
-在 `agent/config/` 目录下配置 Agent 的上下文：
+Configure Agent context in `agent/config/` directory:
 
-- `SOUL.md` - Agent 的角色和性格定义
-- `USER.md` - 用户信息和偏好
-- `MEMORY.md` - 长期记忆和知识库
-- `AGENT.md` - Agent 的能力和限制说明
+- `SOUL.md` - Agent role and personality definition
+- `USER.md` - User information and preferences
+- `MEMORY.md` - Long-term memory and knowledge base
+- `AGENT.md` - Agent capabilities and limitations
 
-这些文件会自动加载到会话的系统提示中。
+These files are automatically loaded into the session's system prompt.
 
-## 依赖
+## Dependencies
 
 - **Elixir** ~> 1.19
-- **Req** ~> 0.5.17（HTTP 客户端）
-- **Jason** ~> 1.4（JSON 解析）
-- **Ecto** ~> 3.12（数据验证）
-- **EnvLoader** ~> 0.1.0（环境变量加载）
+- **Req** ~> 0.5.17 (HTTP Client)
+- **Jason** ~> 1.4 (JSON Parsing)
+- **Ecto** ~> 3.12 (Data Validation)
+- **EnvLoader** ~> 0.1.0 (Environment Variable Loading)
 
-## 安装与运行
+## Installation and Running
 
 ```bash
-# 获取依赖
+# Get dependencies
 mix deps.get
 
-# 配置环境变量
+# Configure environment variables
 cp .env.example .env
-# 编辑 .env 文件，填入你的 API 配置
+# Edit .env file and fill in your API configuration
 
-# 启动交互式环境
+# Start interactive environment
 iex -S mix
 
-# 运行 CLI
+# Run CLI
 iex> LightAgent.CLI.CommandRouter.start()
 
-# 或直接运行 Agent
-iex> LightAgent.Core.Worker.run_agent("你好")
+# Or run Agent directly
+iex> LightAgent.Core.Worker.run_agent("Hello")
 ```
 
-## 项目结构
+## Project Structure
 
 ```
 light-agent/
 ├── lib/
 │   └── light_agent/
-│       ├── application.ex              # OTP 应用入口
+│       ├── application.ex              # OTP application entry
 │       ├── cli/
-│       │   ├── command_router.ex       # CLI 命令路由
-│       │   ├── input_reader.ex         # 输入读取器
-│       │   └── status_formatter.ex     # 状态格式化
+│       │   ├── command_router.ex       # CLI command router
+│       │   ├── input_reader.ex         # Input reader
+│       │   └── status_formatter.ex     # Status formatter
 │       ├── core/
-│       │   ├── LLM.ex                  # LLM API 调用
-│       │   ├── worker.ex               # Agent 工作器
-│       │   ├── agent_paths.ex          # 路径管理
-│       │   ├── session_server.ex       # 会话服务器
-│       │   ├── session_supervisor.ex   # 会话监督器
-│       │   ├── session_memory_store.ex # 会话内存存储
-│       │   ├── session_memory_compactor.ex # 会话内存压缩
+│       │   ├── LLM.ex                  # LLM API calls
+│       │   ├── worker.ex               # Agent worker
+│       │   ├── agent_paths.ex          # Path management
+│       │   ├── session_server.ex       # Session server
+│       │   ├── session_supervisor.ex   # Session supervisor
+│       │   ├── session_memory_store.ex # Session memory store
+│       │   ├── session_memory_compactor.ex # Session memory compactor
 │       │   ├── worker/
-│       │   │   ├── session.ex          # 会话辅助函数
-│       │   │   └── usage.ex            # Token 使用统计
+│       │   │   ├── session.ex          # Session helpers
+│       │   │   └── usage.ex            # Token usage statistics
 │       │   └── skill/
-│       │       ├── code_based_skill.ex      # 代码型技能宏
-│       │       ├── fs_based_skill.ex        # 文件系统型技能
-│       │       ├── runner.ex                # 技能执行器
-│       │       ├── tool_args_validator.ex   # 参数验证器
-│       │       └── schema_json_schema.ex    # Schema 转换器
+│       │       ├── code_based_skill.ex      # Code-based skill macro
+│       │       ├── fs_based_skill.ex        # Filesystem-based skill
+│       │       ├── runner.ex                # Skill executor
+│       │       ├── tool_args_validator.ex   # Parameter validator
+│       │       └── schema_json_schema.ex    # Schema converter
 │       └── skills/
-│           ├── filesystem.ex           # 文件操作技能
-│           ├── location.ex             # 位置查询技能
-│           ├── run_command.ex          # 命令执行技能
-│           ├── weather.ex              # 天气查询技能
-│           └── load_fs_skill.ex        # 动态加载技能
+│           ├── filesystem.ex           # File operation skill
+│           ├── location.ex             # Location query skill
+│           ├── run_command.ex          # Command execution skill
+│           ├── weather.ex              # Weather query skill
+│           └── load_fs_skill.ex        # Dynamic skill loader
 ├── agent/
-│   ├── config/                         # Agent 配置目录
-│   │   ├── SOUL.md                     # Agent 角色
-│   │   ├── USER.md                     # 用户信息
-│   │   ├── MEMORY.md                   # 长期记忆
-│   │   └── AGENT.md                    # Agent 能力
-│   ├── session_memory/                 # 会话历史存储
+│   ├── config/                         # Agent configuration directory
+│   │   ├── SOUL.md                     # Agent role
+│   │   ├── USER.md                     # User information
+│   │   ├── MEMORY.md                   # Long-term memory
+│   │   └── AGENT.md                    # Agent capabilities
+│   ├── session_memory/                 # Session history storage
 │   │   ├── session-init.md
 │   │   └── session-<uuid>.md
-│   └── skills/                         # 文件系统型技能目录
+│   └── skills/                         # Filesystem-based skills directory
 │       └── greet_skill/
 │           ├── SKILL.md
 │           └── scripts/
 │               └── greet.js
 ├── config/
-│   ├── config.exs                      # 应用配置
-│   └── runtime.exs                     # 运行时配置
-├── test/                               # 测试文件
-├── mix.exs                             # 项目定义
+│   ├── config.exs                      # Application configuration
+│   └── runtime.exs                     # Runtime configuration
+├── test/                               # Test files
+├── mix.exs                             # Project definition
 └── README.md
 ```
 
-## 测试
+## Testing
 
-项目包含完整的测试用例：
+The project includes comprehensive test cases:
 
 ```bash
-# 运行所有测试
+# Run all tests
 mix test
 
-# 运行特定测试
+# Run specific test
 mix test test/light_agent/core/worker/session_test.exs
 
-# 运行带详细输出的测试
+# Run tests with detailed output
 mix test --trace
 ```
 
-测试覆盖：
+Test coverage:
 
-- 会话管理（Session, SessionServer, SessionMemoryStore）
-- 技能系统（CodeBasedSkill, ToolArgsValidator, SchemaJsonSchema）
-- 内置技能（Location, Weather, Filesystem, RunCommand）
-- 使用统计（Usage）
-- 路径管理（AgentPaths）
+- Session management (Session, SessionServer, SessionMemoryStore)
+- Skill system (CodeBasedSkill, ToolArgsValidator, SchemaJsonSchema)
+- Built-in skills (Location, Weather, Filesystem, RunCommand)
+- Usage statistics (Usage)
+- Path management (AgentPaths)
 
-## 扩展建议
+## Extension Suggestions
 
-1. **会话压缩优化**：实现更智能的会话历史压缩策略
-2. **流式输出**：支持 LLM 流式响应，提升用户体验
-3. **多模态支持**：支持图像、音频等多模态输入
-4. **技能市场**：构建技能分享和下载平台
-5. **插件系统**：完善 FS-Based Skills 的执行环境和安全隔离
-6. **分布式支持**：支持多节点部署和会话同步
-7. **监控和日志**：增强监控和日志系统，便于调试和优化
+1. **Session Compression Optimization**: Implement smarter session history compression strategies
+2. **Streaming Output**: Support LLM streaming responses for better user experience
+3. **Multi-modal Support**: Support image, audio, and other multi-modal inputs
+4. **Skill Marketplace**: Build a skill sharing and download platform
+5. **Plugin System**: Improve execution environment and security isolation for FS-Based Skills
+6. **Distributed Support**: Support multi-node deployment and session synchronization
+7. **Monitoring and Logging**: Enhance monitoring and logging systems for easier debugging and optimization
 
 ## License
 
