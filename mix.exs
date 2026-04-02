@@ -24,7 +24,8 @@ defmodule LightAgent.MixProject do
     [
       {:req, "~> 0.5.17"},
       {:jason, "~> 1.4"},
-      {:env_loader, "~> 0.1.0", only: [:dev, :test]}
+      {:env_loader, "~> 0.1.0", only: [:dev, :test]},
+      {:ecto, "~> 3.12"}
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
     ]
   end

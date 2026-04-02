@@ -3,17 +3,45 @@ defmodule LightAgent.Skills.Filesystem do
 
   use LightAgent.Core.Skill.CodeBasedSkill
 
+  defmodule ReadFileParams do
+    use Ecto.Schema
+    import Ecto.Changeset
+
+    @primary_key false
+    embedded_schema do
+      field(:path, :string)
+    end
+
+    def changeset(params) do
+      %__MODULE__{}
+      |> cast(params, [:path])
+      |> validate_required([:path])
+    end
+
+    def required_fields, do: [:path]
+  end
+
+  defmodule WriteFileParams do
+    use Ecto.Schema
+    import Ecto.Changeset
+
+    @primary_key false
+    embedded_schema do
+      field(:path, :string)
+      field(:content, :string)
+    end
+
+    def changeset(params) do
+      %__MODULE__{}
+      |> cast(params, [:path, :content])
+      |> validate_required([:path, :content])
+    end
+
+    def required_fields, do: [:path, :content]
+  end
+
   @doc "读取指定文件内容"
-  deftool(:read_file, %{
-    type: "object",
-    properties: %{
-      path: %{
-        type: "string",
-        description: "文件路径，如 /path/to/file.txt"
-      }
-    },
-    required: ["path"]
-  })
+  deftool(:read_file, schema: ReadFileParams)
 
   @impl true
   def exec(:read_file, %{"path" => path}) do
@@ -27,20 +55,7 @@ defmodule LightAgent.Skills.Filesystem do
   end
 
   @doc "写入内容到指定文件"
-  deftool(:write_file, %{
-    type: "object",
-    properties: %{
-      path: %{
-        type: "string",
-        description: "文件路径，如 /path/to/file.txt"
-      },
-      content: %{
-        type: "string",
-        description: "要写入的内容"
-      }
-    },
-    required: ["path", "content"]
-  })
+  deftool(:write_file, schema: WriteFileParams)
 
   @impl true
   def exec(:write_file, %{"path" => path, "content" => content}) do

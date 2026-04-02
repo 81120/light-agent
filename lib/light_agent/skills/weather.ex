@@ -2,56 +2,66 @@ defmodule LightAgent.Skills.Weather do
   @moduledoc "提供天气查询和预报能力的技能包"
   use LightAgent.Core.Skill.CodeBasedSkill
 
-  @doc "获取指定经纬度的当前天气"
-  deftool(:get_weather, %{
-    type: "object",
-    properties: %{
-      latitude: %{
-        type: "number",
-        description: "纬度，如 39.9042"
-      },
-      longitude: %{
-        type: "number",
-        description: "经度，如 116.4074"
-      }
-    },
-    required: ["latitude", "longitude"]
-  })
+  defmodule GetWeatherParams do
+    use Ecto.Schema
+    import Ecto.Changeset
 
-  @impl true
-  def exec(:get_weather, %{"latitude" => latitude, "longitude" => longitude}) do
-    res =
-      Req.get!(
-        "https://api.open-meteo.com/v1/forecast?latitude=#{latitude}&longitude=#{longitude}&current_weather=true",
-        receive_timeout: 60000
-      )
+    @primary_key false
+    embedded_schema do
+      field(:latitude, :float)
+      field(:longitude, :float)
+    end
 
-    data = res.body
-    current_weather = data["current_weather"]
-    current_weather_units = data["current_weather_units"]
-    temperature = current_weather["temperature"]
-    temperature_unit = current_weather_units["temperature"]
+    def changeset(params) do
+      %__MODULE__{}
+      |> cast(params, [:latitude, :longitude])
+      |> validate_required([:latitude, :longitude])
+    end
 
-    "#{latitude}，#{longitude} 的天气是 #{current_weather["weathercode"]}，#{temperature} #{temperature_unit}。"
+    def required_fields, do: [:latitude, :longitude]
   end
 
-  @doc "根据天气推荐合适的服装"
-  deftool(:get_clothing_recommendation, %{
-    type: "object",
-    properties: %{
-      temperature: %{
-        type: "integer",
-        description: "当前温度(摄氏度)，如 25"
-      }
-    },
-    required: ["temperature"]
-  })
+  defmodule GetClothingRecommendationParams do
+    use Ecto.Schema
+    import Ecto.Changeset
 
-  def exec(:get_clothing_recommendation, %{"temperature" => temperature}) do
-    if temperature >= 25 do
-      "建议穿短袖"
-    else
-      "建议穿长袖"
+    @primary_key false
+    embedded_schema do
+      field(:temperature, :integer)
+    end
+
+    def changeset(params) do
+      %__MODULE__{}
+      |> cast(params, [:temperature])
+      |> validate_required([:temperature])
+    end
+
+    def required_fields, do: [:temperature]
+  end
+
+  @doc "获取指定经纬度的当前天气"
+  deftool(:get_weather, schema: GetWeatherParams)
+
+  @impl true
+  def exec(:get_weather, %{
+        "latitude" => latitude,
+        "longitude" => longitude
+      }) do
+    case Req.get(
+           "https://api.open-meteo.com/v1/forecast?latitude=#{latitude}&longitude=#{longitude}&current_weather=true",
+           receive_timeout: 300_000
+         ) do
+      {:ok, res} ->
+        data = res.body
+        current_weather = data["current_weather"]
+        current_weather_units = data["current_weather_units"]
+        temperature = current_weather["temperature"]
+        temperature_unit = current_weather_units["temperature"]
+
+        "#{latitude}，#{longitude} 的天气是 #{current_weather["weathercode"]}，#{temperature} #{temperature_unit}。"
+
+      {:error, e} ->
+        "获取 #{latitude}，#{longitude} 的天气失败: #{inspect(e)}"
     end
   end
 end

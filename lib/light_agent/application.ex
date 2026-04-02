@@ -9,9 +9,10 @@ defmodule LightAgent.Application do
   def start(_type, args) do
     children = [
       # Starts a worker by calling: LightAgent.Core.Worker.start_link(arg)
-      {LightAgent.Core.Memory.LongTerm, []},
-      {LightAgent.Core.Memory.ShortTerm, []},
-      {LightAgent.Core.Worker, args}
+      {Registry, keys: :unique, name: LightAgent.Core.SessionRegistry},
+      {LightAgent.Core.SessionSupervisor, []},
+      {LightAgent.Core.Worker, args},
+      {LightAgent.Core.SessionMemoryCompactor, []}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

@@ -1,6 +1,6 @@
 ---
-name: greet
-description: 根据提供的姓名打招呼，返回打招呼的文本。
+name: greet_skill
+description: 根据提供的姓名打招呼，返回打招呼的文本。当需要根据文本描述打招呼时，使用该技能。
 ---
 
 # Greet

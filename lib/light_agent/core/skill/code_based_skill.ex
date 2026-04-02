@@ -13,18 +13,31 @@ defmodule LightAgent.Core.Skill.CodeBasedSkill do
     end
   end
 
-  defmacro deftool(name, parameters) do
-    quote do
-      # 1. 将工具元数据存入模块属性
+  defmacro deftool(name, schema: param_schema) do
+    quote bind_quoted: [name: name, param_schema: param_schema] do
+      case Code.ensure_compiled(param_schema) do
+        {:module, _} ->
+          :ok
+
+        {:error, _} ->
+          raise CompileError,
+            description:
+              "deftool #{name}: schema #{inspect(param_schema)} is not available at compile time"
+      end
+
+      unless function_exported?(param_schema, :changeset, 1) do
+        raise CompileError,
+          description:
+            "deftool #{name}: schema #{inspect(param_schema)} must implement changeset/1"
+      end
+
       @tools %{
-        name: unquote(name),
-        # description: unquote(description),
+        name: name,
         description: @doc,
-        parameters: unquote(parameters),
-        function: unquote(name)
+        param_schema: param_schema,
+        function: name
       }
 
-      # 2. 定义实际函数
       def unquote(name)(args) do
         Logger.debug(
           "Calling tool #{unquote(name)} with args: #{inspect(args)}"

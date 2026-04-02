@@ -3,17 +3,26 @@ defmodule LightAgent.Skills.RunCommand do
 
   use LightAgent.Core.Skill.CodeBasedSkill
 
+  defmodule RunCommandParams do
+    use Ecto.Schema
+    import Ecto.Changeset
+
+    @primary_key false
+    embedded_schema do
+      field(:command, :string)
+    end
+
+    def changeset(params) do
+      %__MODULE__{}
+      |> cast(params, [:command])
+      |> validate_required([:command])
+    end
+
+    def required_fields, do: [:command]
+  end
+
   @doc "运行指定命令"
-  deftool(:run_command, %{
-    type: "object",
-    properties: %{
-      command: %{
-        type: "string",
-        description: "要运行的命令，如 ls -l"
-      }
-    },
-    required: ["command"]
-  })
+  deftool(:run_command, schema: RunCommandParams)
 
   @impl true
   def exec(:run_command, %{"command" => command}) do

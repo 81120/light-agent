@@ -1,33 +1,39 @@
 defmodule LightAgent.Skills.LoadFsSkill do
-  @moduledoc """
-  加载基于文件系统的skill的SKILL.md文件
-  """
   use LightAgent.Core.Skill.CodeBasedSkill
 
-  @skill_dir ".agent/skills/"
+  alias LightAgent.Core.AgentPaths
 
-  @doc "读取指定的基于文件系统的skill的SKILL.md"
-  deftool(:load_fs_skill, %{
-    type: "object",
-    properties: %{
-      skill_name: %{
-        type: "string",
-        description: "The name of the skill to load"
-      }
-    },
-    required: ["skill_name"]
-  })
+  defmodule LoadSkillMdParams do
+    use Ecto.Schema
+    import Ecto.Changeset
 
-  @impl true
-  def exec(:load_fs_skill, %{"skill_name" => skill_name}) do
-    skill_path = Path.join([@skill_dir, skill_name, "SKILL.md"])
+    @primary_key false
+    embedded_schema do
+      field(:skill_name, :string)
+    end
+
+    def changeset(params) do
+      %__MODULE__{}
+      |> cast(params, [:skill_name])
+      |> validate_required([:skill_name])
+    end
+
+    def required_fields, do: [:skill_name]
+  end
+
+  @doc "加载指定的基于文件系统的skill的SKILL.md文件的内容"
+  deftool(:load_skill_md, schema: LoadSkillMdParams)
+
+  def exec(:load_skill_md, %{"skill_name" => skill_name}) do
+    skill_path =
+      Path.join([AgentPaths.skills_root(), skill_name, "SKILL.md"])
 
     case File.read(skill_path) do
-      {:ok, skill_content} ->
-        skill_content
+      {:ok, content} ->
+        content
 
-      {:error, _} ->
-        "Skill #{skill_name} not found"
+      {:error, reason} ->
+        "读取skill #{skill_name} 的SKILL.md文件失败: #{inspect(reason)}"
     end
   end
 end
