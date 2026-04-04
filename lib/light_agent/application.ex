@@ -11,8 +11,7 @@ defmodule LightAgent.Application do
       # Starts a worker by calling: LightAgent.Core.Worker.start_link(arg)
       {Registry, keys: :unique, name: LightAgent.Core.SessionRegistry},
       {LightAgent.Core.SessionSupervisor, []},
-      {LightAgent.Core.Worker, args},
-      {LightAgent.Core.SessionMemoryCompactor, []}
+      {LightAgent.Core.Worker, args}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

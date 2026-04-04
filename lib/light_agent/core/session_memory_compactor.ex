@@ -1,13 +1,10 @@
 defmodule LightAgent.Core.SessionMemoryCompactor do
-  use GenServer
-
   require Logger
 
   alias LightAgent.Core.AgentPaths
   alias LightAgent.Core.SessionMemoryStore
 
-  @default_interval_ms 10 * 60 * 1000
-  @min_compaction_messages 100
+  @min_compaction_messages 10
   @adjacent_window 2
   @managed_start "<!-- session-compaction:start -->"
   @managed_end "<!-- session-compaction:end -->"
@@ -19,45 +16,7 @@ defmodule LightAgent.Core.SessionMemoryCompactor do
     "[agent/config/MEMORY.md]"
   ]
 
-  def start_link(opts \\ []) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-  end
-
-  def run_once do
-    GenServer.call(__MODULE__, :run_once, 300_000)
-  end
-
-  @impl true
-  def init(_opts) do
-    interval_ms =
-      Application.get_env(
-        :LightAgent,
-        :session_compaction_interval_ms,
-        @default_interval_ms
-      )
-
-    schedule_tick(interval_ms)
-    {:ok, %{interval_ms: interval_ms}}
-  end
-
-  @impl true
-  def handle_call(:run_once, _from, state) do
-    do_compact_all_sessions()
-    {:reply, :ok, state}
-  end
-
-  @impl true
-  def handle_info(:tick, state) do
-    do_compact_all_sessions()
-    schedule_tick(state.interval_ms)
-    {:noreply, state}
-  end
-
-  defp schedule_tick(interval_ms) do
-    Process.send_after(self(), :tick, interval_ms)
-  end
-
-  defp do_compact_all_sessions do
+  def do_compact_all_sessions do
     SessionMemoryStore.list_session_ids()
     |> Enum.reduce([], fn session_id, acc ->
       case SessionMemoryStore.load_session_payload(session_id) do
