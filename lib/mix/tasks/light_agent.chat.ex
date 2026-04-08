@@ -36,8 +36,12 @@ defmodule Mix.Tasks.LightAgent.Chat do
       {:restored, session_id, sessions} ->
         render_welcome(session_id)
         IO.puts(render_sessions_list(sessions))
+        IO.puts(muted("检测到历史会话，未自动创建新会话。"))
 
-        IO.puts(muted("检测到历史会话，未自动创建新会话。请使用 /switch <id> 切换到目标会话。"))
+      {:auto_switched, session_id, sessions} ->
+        render_welcome(session_id)
+        IO.puts(render_sessions_list(sessions))
+        IO.puts(muted("检测到唯一历史会话，已自动切换。"))
     end
 
     loop_plain()
@@ -576,10 +580,19 @@ defmodule Mix.Tasks.LightAgent.Chat do
         {:created_new, session_id}
 
       _ ->
-        current =
-          Enum.find(sessions, & &1.current) || List.first(sessions)
+        historical_sessions = Enum.reject(sessions, &(&1.id == "init"))
 
-        {:restored, current.id, sessions}
+        case historical_sessions do
+          [%{id: session_id}] ->
+            :ok = LightAgent.Core.Worker.switch_session(session_id)
+            {:auto_switched, session_id, LightAgent.Core.Worker.list_sessions()}
+
+          _ ->
+            current =
+              Enum.find(sessions, & &1.current) || List.first(sessions)
+
+            {:restored, current.id, sessions}
+        end
     end
   end
 

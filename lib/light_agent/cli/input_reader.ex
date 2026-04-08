@@ -26,12 +26,10 @@ defmodule LightAgent.CLI.InputReader do
     write_fun = Keyword.get(opts, :write_fun, &IO.write/1)
 
     write_fun.(prompt)
-    prompt_line = prompt |> String.split("\n") |> List.last()
-
-    do_read("", prompt_line, io_getn_fun, write_fun)
+    do_read("", io_getn_fun, write_fun)
   end
 
-  defp do_read(buffer, prompt_line, io_getn_fun, write_fun) do
+  defp do_read(buffer, io_getn_fun, write_fun) do
     case io_getn_fun.(1) do
       :eof ->
         if buffer == "", do: nil, else: buffer <> "\n"
@@ -46,22 +44,19 @@ defmodule LightAgent.CLI.InputReader do
 
       @backspace ->
         next_buffer = delete_last_grapheme(buffer)
-        redraw_line(prompt_line, next_buffer, write_fun)
-        do_read(next_buffer, prompt_line, io_getn_fun, write_fun)
+        do_read(next_buffer, io_getn_fun, write_fun)
 
       @delete ->
         next_buffer = delete_last_grapheme(buffer)
-        redraw_line(prompt_line, next_buffer, write_fun)
-        do_read(next_buffer, prompt_line, io_getn_fun, write_fun)
+        do_read(next_buffer, io_getn_fun, write_fun)
 
       @escape ->
         consume_escape_sequence(io_getn_fun)
-        do_read(buffer, prompt_line, io_getn_fun, write_fun)
+        do_read(buffer, io_getn_fun, write_fun)
 
       ch when is_binary(ch) ->
         next_buffer = buffer <> ch
-        redraw_line(prompt_line, next_buffer, write_fun)
-        do_read(next_buffer, prompt_line, io_getn_fun, write_fun)
+        do_read(next_buffer, io_getn_fun, write_fun)
     end
   end
 
@@ -72,10 +67,6 @@ defmodule LightAgent.CLI.InputReader do
       [] -> ""
       _ -> graphemes |> Enum.drop(-1) |> Enum.join()
     end
-  end
-
-  defp redraw_line(prompt_line, buffer, write_fun) do
-    write_fun.("\r\e[2K\e[0G" <> prompt_line <> buffer)
   end
 
   defp consume_escape_sequence(io_getn_fun) do

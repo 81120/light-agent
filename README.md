@@ -15,7 +15,8 @@ LightAgent is an AI Agent framework developed in Elixir with the following featu
   - **Code-Based Skills**: Defined through Elixir modules, registered at compile time
   - **FS-Based Skills**: Dynamically loaded through the filesystem, supporting runtime extensions
 - **Token Usage Tracking**: Real-time tracking and statistics of Token usage
-- **Concurrent Execution**: Tool calls support concurrent execution for improved efficiency
+- **Secure Tool Execution**: Sensitive tools require interactive user approval before execution
+- **Sequential Tool Execution**: Tool calls are executed one by one in model-returned order
 
 ## Architecture
 
@@ -165,6 +166,12 @@ Uses Ecto Changeset for parameter validation:
 
 Provides rich command-line interaction:
 
+- Startup command: `mix light_agent.chat`
+- Auto session bootstrap behavior:
+  - if only `init` exists, create and switch to a new session
+  - if exactly one historical session exists besides `init`, auto-switch to it
+  - otherwise restore existing sessions and keep current one
+
 - `/help` - Display help panel
 - `/new` - Create and switch to a new session
 - `/sessions` - List all sessions
@@ -217,13 +224,20 @@ User Input
                      ▼         ▼
             ┌──────────────┐  ┌──────────┐
             │ Skill.Runner │  │  Return  │
-            │ Execute Tools│  │  Result  │
+            │ Validate Args│  │  Result  │
             └──────────────┘  └──────────┘
                      │
                      ▼
             ┌──────────────┐
-            │  Validate    │
-            │  Parameters  │
+            │ Security     │
+            │ Confirmation │
+            │ (Prompt UI)  │
+            └──────────────┘
+                     │
+                     ▼
+            ┌──────────────┐
+            │ Execute Tools│
+            │ (Sequential) │
             └──────────────┘
                      │
                      ▼
@@ -259,10 +273,7 @@ Configuration files are automatically loaded (in development and test environmen
 
 ```bash
 # Start interactive CLI
-iex -S mix
-
-# In CLI, enter
-iex> LightAgent.CLI.CommandRouter.start()
+mix light_agent.chat
 ```
 
 **Method 2: Programmatic Way**
@@ -492,6 +503,7 @@ These files are automatically loaded into the session's system prompt.
 - **Jason** ~> 1.4 (JSON Parsing)
 - **Ecto** ~> 3.12 (Data Validation)
 - **EnvLoader** ~> 0.1.0 (Environment Variable Loading)
+- **Prompt** ~> 0.10.1 (Interactive approval prompts)
 
 ## Installation and Running
 
@@ -503,13 +515,11 @@ mix deps.get
 cp .env.example .env
 # Edit .env file and fill in your API configuration
 
-# Start interactive environment
+# Start interactive CLI
+mix light_agent.chat
+
+# Or run Agent directly in IEx
 iex -S mix
-
-# Run CLI
-iex> LightAgent.CLI.CommandRouter.start()
-
-# Or run Agent directly
 iex> LightAgent.Core.Worker.run_agent("Hello")
 ```
 
@@ -523,6 +533,7 @@ light-agent/
 │       ├── cli/
 │       │   ├── command_router.ex       # CLI command router
 │       │   ├── input_reader.ex         # Input reader
+│       │   ├── prompts.ex              # Prompt-based interactive confirmations
 │       │   └── status_formatter.ex     # Status formatter
 │       ├── core/
 │       │   ├── LLM.ex                  # LLM API calls

@@ -33,25 +33,18 @@ defmodule LightAgent.Core.Skill.Runner do
   end
 
   def handle_tool_call(tool_call) do
-    tool_call
-    |> Task.async_stream(
-      fn call ->
-        function_name = call["function"]["name"]
-        args = decode_tool_arguments(call)
-        result = dispatch_tool(function_name, args)
+    Enum.map(tool_call, fn call ->
+      function_name = call["function"]["name"]
+      args = decode_tool_arguments(call)
+      result = dispatch_tool(function_name, args)
 
-        %{
-          tool_call_id: call["id"],
-          role: "tool",
-          name: function_name,
-          content: result
-        }
-      end,
-      max_concurrency: 10,
-      timeout: 300_000
-    )
-    |> Enum.to_list()
-    |> Enum.map(fn {:ok, res} -> res end)
+      %{
+        tool_call_id: call["id"],
+        role: "tool",
+        name: function_name,
+        content: result
+      }
+    end)
   end
 
   defp tool_parameters(tool) do
@@ -73,13 +66,45 @@ defmodule LightAgent.Core.Skill.Runner do
     with {:ok, {skill_module, tool}} <- resolve_tool(function_name),
          {:ok, validated_args} <-
            ToolArgsValidator.validate(tool, args) do
-      apply(skill_module, tool.function, [validated_args])
+      if requires_user_confirmation?(function_name) do
+        case request_user_confirmation(function_name, validated_args) do
+          :allow ->
+            apply(skill_module, tool.function, [validated_args])
+
+          :deny ->
+            Jason.encode!(%{
+              "type" => "permission_denied",
+              "tool" => function_name,
+              "message" => "用户拒绝执行该操作"
+            })
+        end
+      else
+        apply(skill_module, tool.function, [validated_args])
+      end
     else
       {:error, :tool_not_found} ->
         "工具 #{function_name} 不存在"
 
       {:error, validation_error} when is_map(validation_error) ->
         Jason.encode!(validation_error)
+    end
+  end
+
+  defp requires_user_confirmation?(function_name)
+       when is_binary(function_name) do
+    lowered = String.downcase(function_name)
+
+    function_name in ["run_command", "write_file", "delete_file", "remove_file"] or
+      String.contains?(lowered, "delete") or
+      String.contains?(lowered, "remove") or
+      String.contains?(lowered, "write") or
+      String.contains?(lowered, "run")
+  end
+
+  defp request_user_confirmation(function_name, args) do
+    case LightAgent.CLI.Prompts.confirm_tool_execution(function_name, args) do
+      :allow -> :allow
+      :deny -> :deny
     end
   end
 

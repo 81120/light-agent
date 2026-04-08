@@ -76,3 +76,85 @@ defmodule LightAgent.Skills.FilesystemTest do
              "abc"
   end
 end
+
+defmodule LightAgent.Core.Skill.RunnerSecurityTest do
+  use ExUnit.Case, async: false
+
+  import ExUnit.CaptureIO
+
+  alias LightAgent.Core.Skill.Runner
+
+  test "run_command requires confirmation and can be denied" do
+    result =
+      capture_io("n\n", fn ->
+        [result] =
+          Runner.handle_tool_call([
+            %{
+              "id" => "tool_1",
+              "function" => %{
+                "name" => "run_command",
+                "arguments" => Jason.encode!(%{"command" => "echo hello"})
+              }
+            }
+          ])
+
+        send(self(), {:runner_result, result})
+      end)
+
+    assert is_binary(result)
+    assert_receive {:runner_result, runner_result}
+    assert runner_result.name == "run_command"
+
+    {:ok, payload} = Jason.decode(runner_result.content)
+    assert payload["type"] == "permission_denied"
+    assert payload["tool"] == "run_command"
+  end
+
+  test "run_command requires confirmation and can be allowed" do
+    _output =
+      capture_io("y\n", fn ->
+        [result] =
+          Runner.handle_tool_call([
+            %{
+              "id" => "tool_2",
+              "function" => %{
+                "name" => "run_command",
+                "arguments" => Jason.encode!(%{"command" => "echo hello"})
+              }
+            }
+          ])
+
+        send(self(), {:runner_result, result})
+      end)
+
+    assert_receive {:runner_result, result}
+    assert result.name == "run_command"
+    assert String.contains?(result.content, "hello")
+  end
+
+  test "read_file does not require confirmation" do
+    tmp_dir = System.tmp_dir!()
+
+    path =
+      Path.join(
+        tmp_dir,
+        "light_agent_read_runner_#{System.unique_integer([:positive])}.txt"
+      )
+
+    :ok = File.write(path, "abc")
+
+    [result] =
+      Runner.handle_tool_call([
+        %{
+          "id" => "tool_3",
+          "function" => %{
+            "name" => "read_file",
+            "arguments" => Jason.encode!(%{"path" => path})
+          }
+        }
+      ])
+
+    assert result.name == "read_file"
+    assert result.content == "abc"
+  end
+end
