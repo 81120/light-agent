@@ -157,4 +157,101 @@ defmodule LightAgent.Core.Skill.RunnerSecurityTest do
     assert result.name == "read_file"
     assert result.content == "abc"
   end
+
+  test "plan mode blocks tool execution" do
+    [result] =
+      Runner.handle_tool_call(
+        [
+          %{
+            "id" => "tool_4",
+            "function" => %{
+              "name" => "run_command",
+              "arguments" => Jason.encode!(%{"command" => "echo hello"})
+            }
+          }
+        ],
+        mode: :plan,
+        plan_phase: :draft
+      )
+
+    assert result.name == "run_command"
+
+    {:ok, payload} = Jason.decode(result.content)
+    assert payload["type"] == "plan_mode_blocked"
+    assert payload["tool"] == "run_command"
+  end
+end
+
+defmodule LightAgent.CLI.CommandRouterPlanTest do
+  use ExUnit.Case, async: true
+
+  alias LightAgent.CLI.CommandRouter
+
+  test "parses plan commands" do
+    assert CommandRouter.parse("/plan on") == {:command, :plan, :on}
+    assert CommandRouter.parse("/plan off") == {:command, :plan, :off}
+    assert CommandRouter.parse("/plan show") == {:command, :plan, :show}
+    assert CommandRouter.parse("/plan create") == {:command, :plan, :create}
+    assert CommandRouter.parse("/plan apply") == {:command, :plan, :apply}
+    assert CommandRouter.parse("/plan progress") == {:command, :plan, :progress}
+    assert CommandRouter.parse("/plan reset") == {:command, :plan, :reset}
+
+    assert CommandRouter.parse("/plan edit add tests") ==
+             {:command, :plan, :edit, "add tests"}
+
+    assert CommandRouter.parse("/plan edit") == {:command, :plan, :edit, ""}
+    assert CommandRouter.parse("/plan") == {:command, :plan, :show}
+  end
+end
+
+defmodule LightAgent.Core.SessionServerPlanStateTest do
+  use ExUnit.Case, async: false
+
+  alias LightAgent.Core.SessionServer
+
+  test "updates plan, apply starts first task, and progress reports totals" do
+    session_id = "plan-test-#{System.unique_integer([:positive])}"
+    {:ok, pid} = SessionServer.start_link(session_id: session_id, history: [])
+
+    :ok =
+      GenServer.call(
+        SessionServer.via_tuple(session_id),
+        {:update_plan,
+         %{
+           "title" => "demo",
+           "tasks" => [
+             %{"text" => "step 1"},
+             %{"id" => "T2", "text" => "step 2"}
+           ]
+         }}
+      )
+
+    plan = GenServer.call(SessionServer.via_tuple(session_id), :current_plan)
+    assert plan["status"] == "idle"
+    assert plan["revision"] == 1
+    assert Enum.map(plan["tasks"], & &1["id"]) == ["T1", "T2"]
+    assert Enum.map(plan["tasks"], & &1["status"]) == ["pending", "pending"]
+
+    assert :ok =
+             GenServer.call(SessionServer.via_tuple(session_id), :apply_plan)
+
+    progress =
+      GenServer.call(SessionServer.via_tuple(session_id), :plan_progress)
+
+    assert progress["done"] == 0
+    assert progress["total"] == 2
+    assert hd(progress["tasks"])["status"] == "in_progress"
+
+    GenServer.stop(pid)
+  end
+
+  test "apply_plan rejects empty plan" do
+    session_id = "plan-empty-#{System.unique_integer([:positive])}"
+    {:ok, pid} = SessionServer.start_link(session_id: session_id, history: [])
+
+    assert {:error, :empty_plan} =
+             GenServer.call(SessionServer.via_tuple(session_id), :apply_plan)
+
+    GenServer.stop(pid)
+  end
 end

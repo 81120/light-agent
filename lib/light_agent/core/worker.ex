@@ -59,6 +59,34 @@ defmodule LightAgent.Core.Worker do
     GenServer.call(__MODULE__, :current_history)
   end
 
+  def current_mode() do
+    GenServer.call(__MODULE__, :current_mode)
+  end
+
+  def set_mode(mode) when mode in [:normal, :plan] do
+    GenServer.call(__MODULE__, {:set_mode, mode})
+  end
+
+  def current_plan() do
+    GenServer.call(__MODULE__, :current_plan)
+  end
+
+  def apply_plan() do
+    GenServer.call(__MODULE__, :apply_plan)
+  end
+
+  def reset_plan() do
+    GenServer.call(__MODULE__, :reset_plan)
+  end
+
+  def update_plan(plan) when is_map(plan) do
+    GenServer.call(__MODULE__, {:update_plan, plan})
+  end
+
+  def plan_progress() do
+    GenServer.call(__MODULE__, :plan_progress)
+  end
+
   @impl true
   def init(_opts) do
     case restore_or_boot_sessions() do
@@ -186,6 +214,86 @@ defmodule LightAgent.Core.Worker do
       end
 
     {:reply, reply, state}
+  end
+
+  @impl true
+  def handle_call(:current_mode, _from, state) do
+    mode =
+      case call_session(state.current_session_id, :current_mode) do
+        {:ok, current_mode} -> current_mode
+        {:error, :session_not_found} -> :normal
+      end
+
+    {:reply, mode, state}
+  end
+
+  @impl true
+  def handle_call({:set_mode, mode}, _from, state) do
+    case call_session(state.current_session_id, {:set_mode, mode}) do
+      {:ok, :ok} ->
+        {:reply, :ok, state}
+
+      {:error, :session_not_found} ->
+        {:reply, {:error, :session_not_found}, state}
+    end
+  end
+
+  @impl true
+  def handle_call(:current_plan, _from, state) do
+    plan =
+      case call_session(state.current_session_id, :current_plan) do
+        {:ok, value} -> value
+        {:error, :session_not_found} -> %{"status" => "idle", "tasks" => []}
+      end
+
+    {:reply, plan, state}
+  end
+
+  @impl true
+  def handle_call(:apply_plan, _from, state) do
+    reply =
+      case call_session(state.current_session_id, :apply_plan) do
+        {:ok, value} -> value
+        {:error, :session_not_found} -> {:error, :session_not_found}
+      end
+
+    {:reply, reply, state}
+  end
+
+  @impl true
+  def handle_call(:reset_plan, _from, state) do
+    reply =
+      case call_session(state.current_session_id, :reset_plan) do
+        {:ok, value} -> value
+        {:error, :session_not_found} -> {:error, :session_not_found}
+      end
+
+    {:reply, reply, state}
+  end
+
+  @impl true
+  def handle_call({:update_plan, plan}, _from, state) do
+    reply =
+      case call_session(state.current_session_id, {:update_plan, plan}) do
+        {:ok, value} -> value
+        {:error, :session_not_found} -> {:error, :session_not_found}
+      end
+
+    {:reply, reply, state}
+  end
+
+  @impl true
+  def handle_call(:plan_progress, _from, state) do
+    progress =
+      case call_session(state.current_session_id, :plan_progress) do
+        {:ok, value} ->
+          value
+
+        {:error, :session_not_found} ->
+          %{"done" => 0, "total" => 0, "tasks" => []}
+      end
+
+    {:reply, progress, state}
   end
 
   @impl true

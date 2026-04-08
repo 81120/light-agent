@@ -15,8 +15,9 @@ LightAgent is an AI Agent framework developed in Elixir with the following featu
   - **Code-Based Skills**: Defined through Elixir modules, registered at compile time
   - **FS-Based Skills**: Dynamically loaded through the filesystem, supporting runtime extensions
 - **Token Usage Tracking**: Real-time tracking and statistics of Token usage
-- **Secure Tool Execution**: Sensitive tools require interactive user approval before execution
+- **Secure Tool Execution**: Only write/delete/command-execution tools require interactive approval
 - **Sequential Tool Execution**: Tool calls are executed one by one in model-returned order
+- **Plan Mode**: Supports create/edit/show/apply/progress/reset workflow with subtask status tracking
 
 ## Architecture
 
@@ -181,6 +182,13 @@ Provides rich command-line interaction:
 - `/delete <id>` - Delete specified session
 - `/history` - Display current session history
 - `/usage` - Display Token usage statistics
+- `/plan on|off` - Enable/disable plan mode
+- `/plan create` - Generate a complete plan draft (JSON-based)
+- `/plan edit <text>` - Iteratively refine the plan draft
+- `/plan show` - Show full plan details (title/revision/tasks)
+- `/plan apply` - Start automatic execution of the plan
+- `/plan progress` - Show live subtask progress (done/total)
+- `/plan reset` - Reset current plan state
 - `/exit` - Exit program
 
 #### 5. Usage Tracking
@@ -226,6 +234,12 @@ User Input
             │ Skill.Runner │  │  Return  │
             │ Validate Args│  │  Result  │
             └──────────────┘  └──────────┘
+                     │
+                     ▼
+            ┌──────────────┐
+            │ Plan Gate    │
+            │ draft/apply  │
+            └──────────────┘
                      │
                      ▼
             ┌──────────────┐
@@ -291,6 +305,27 @@ result = LightAgent.Core.Worker.run_agent("What's the weather in Beijing today?"
 ```
 
 ### Session Management API
+
+### Plan Mode API
+
+```elixir
+# Enable/disable plan mode for current session
+:ok = LightAgent.Core.Worker.set_mode(:plan)
+:ok = LightAgent.Core.Worker.set_mode(:normal)
+
+# Inspect and maintain plan
+plan = LightAgent.Core.Worker.current_plan()
+:ok = LightAgent.Core.Worker.update_plan(%{"title" => "Demo", "tasks" => [%{"id" => "T1", "text" => "step"}]})
+:ok = LightAgent.Core.Worker.apply_plan()
+progress = LightAgent.Core.Worker.plan_progress()
+:ok = LightAgent.Core.Worker.reset_plan()
+```
+
+Plan notes:
+- In `plan + draft` phase, tool execution is blocked (`plan_mode_blocked`).
+- In `plan + apply` phase, tools execute sequentially and task progress is updated.
+- Sensitive tool confirmation is only required for: `run_command`, `write_file`, `delete_file`, `remove_file`.
+
 
 ```elixir
 # Create new session
@@ -531,7 +566,7 @@ light-agent/
 │   └── light_agent/
 │       ├── application.ex              # OTP application entry
 │       ├── cli/
-│       │   ├── command_router.ex       # CLI command router
+│       │   ├── command_router.ex       # CLI command router (+ /plan commands)
 │       │   ├── input_reader.ex         # Input reader
 │       │   ├── prompts.ex              # Prompt-based interactive confirmations
 │       │   └── status_formatter.ex     # Status formatter

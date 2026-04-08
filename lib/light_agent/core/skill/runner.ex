@@ -32,11 +32,14 @@ defmodule LightAgent.Core.Skill.Runner do
     end)
   end
 
-  def handle_tool_call(tool_call) do
+  def handle_tool_call(tool_call, opts \\ []) do
+    mode = Keyword.get(opts, :mode, :normal)
+    plan_phase = Keyword.get(opts, :plan_phase, :apply)
+
     Enum.map(tool_call, fn call ->
       function_name = call["function"]["name"]
       args = decode_tool_arguments(call)
-      result = dispatch_tool(function_name, args)
+      result = dispatch_tool(function_name, args, mode, plan_phase)
 
       %{
         tool_call_id: call["id"],
@@ -62,7 +65,19 @@ defmodule LightAgent.Core.Skill.Runner do
     end
   end
 
-  defp dispatch_tool(function_name, args) do
+  defp dispatch_tool(function_name, _args, :plan, :draft) do
+    Jason.encode!(%{
+      "type" => "plan_mode_blocked",
+      "tool" => function_name,
+      "message" => "plan mode 下未 apply 计划，禁止执行工具"
+    })
+  end
+
+  defp dispatch_tool(function_name, args, :plan, :apply) do
+    dispatch_tool(function_name, args, :normal, :apply)
+  end
+
+  defp dispatch_tool(function_name, args, :normal, _plan_phase) do
     with {:ok, {skill_module, tool}} <- resolve_tool(function_name),
          {:ok, validated_args} <-
            ToolArgsValidator.validate(tool, args) do
@@ -92,13 +107,12 @@ defmodule LightAgent.Core.Skill.Runner do
 
   defp requires_user_confirmation?(function_name)
        when is_binary(function_name) do
-    lowered = String.downcase(function_name)
-
-    function_name in ["run_command", "write_file", "delete_file", "remove_file"] or
-      String.contains?(lowered, "delete") or
-      String.contains?(lowered, "remove") or
-      String.contains?(lowered, "write") or
-      String.contains?(lowered, "run")
+    function_name in [
+      "run_command",
+      "write_file",
+      "delete_file",
+      "remove_file"
+    ]
   end
 
   defp request_user_confirmation(function_name, args) do

@@ -78,6 +78,13 @@ defmodule LightAgent.CLI.CommandRouter do
       tips: "显示当前可调用工具"
     },
     %{
+      cmd: "/plan",
+      args: "on|off|show|create|apply|progress|reset|edit <text>",
+      group: :session,
+      desc: "切换/创建/编辑/执行计划",
+      tips: "plan mode 下先 create/edit，再 apply 执行"
+    },
+    %{
       cmd: "/exit",
       args: "",
       group: :general,
@@ -107,6 +114,16 @@ defmodule LightAgent.CLI.CommandRouter do
       "/usage" -> {:command, :usage}
       "/skills" -> {:command, :skills}
       "/tools" -> {:command, :tools}
+      "/plan on" -> {:command, :plan, :on}
+      "/plan off" -> {:command, :plan, :off}
+      "/plan show" -> {:command, :plan, :show}
+      "/plan create" -> {:command, :plan, :create}
+      "/plan apply" -> {:command, :plan, :apply}
+      "/plan progress" -> {:command, :plan, :progress}
+      "/plan reset" -> {:command, :plan, :reset}
+      "/plan edit " <> text -> {:command, :plan, :edit, String.trim(text)}
+      "/plan edit" -> {:command, :plan, :edit, ""}
+      "/plan" -> {:command, :plan, :show}
       "/exit" -> {:command, :exit}
       "/switch " <> id -> {:command, :switch, String.trim(id)}
       "/resume " <> id -> {:command, :resume, String.trim(id)}

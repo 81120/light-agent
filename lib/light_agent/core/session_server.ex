@@ -24,6 +24,8 @@ defmodule LightAgent.Core.SessionServer do
     state = %{
       id: session_id,
       status: :active,
+      mode: :normal,
+      plan_state: default_plan_state(),
       history: history,
       token_usage_total: Usage.default_token_usage_total(),
       tool_retry_count: 0
@@ -51,6 +53,67 @@ defmodule LightAgent.Core.SessionServer do
   @impl true
   def handle_call(:current_history, _from, state) do
     {:reply, state.history, state}
+  end
+
+  @impl true
+  def handle_call(:current_mode, _from, state) do
+    {:reply, state.mode, state}
+  end
+
+  @impl true
+  def handle_call({:set_mode, mode}, _from, state)
+      when mode in [:normal, :plan] do
+    {:reply, :ok, %{state | mode: mode}}
+  end
+
+  @impl true
+  def handle_call(:current_plan, _from, state) do
+    {:reply, state.plan_state, state}
+  end
+
+  @impl true
+  def handle_call(:apply_plan, _from, state) do
+    tasks = Map.get(state.plan_state, "tasks", [])
+
+    if tasks == [] do
+      {:reply, {:error, :empty_plan}, state}
+    else
+      state =
+        state
+        |> put_in([:plan_state, "status"], "applying")
+        |> mark_first_pending_in_progress()
+        |> persist_history()
+
+      {:reply, :ok, state}
+    end
+  end
+
+  @impl true
+  def handle_call(:reset_plan, _from, state) do
+    state = %{state | plan_state: default_plan_state()} |> persist_history()
+    {:reply, :ok, state}
+  end
+
+  @impl true
+  def handle_call({:update_plan, plan}, _from, state) when is_map(plan) do
+    next_plan =
+      state.plan_state
+      |> Map.merge(plan)
+      |> Map.update("revision", 1, &(&1 + 1))
+      |> normalize_plan_tasks()
+
+    state = %{state | plan_state: next_plan} |> persist_history()
+    {:reply, :ok, state}
+  end
+
+  @impl true
+  def handle_call(:plan_progress, _from, state) do
+    tasks = Map.get(state.plan_state, "tasks", [])
+
+    done = Enum.count(tasks, &(&1["status"] == "done"))
+    total = length(tasks)
+
+    {:reply, %{"done" => done, "total" => total, "tasks" => tasks}, state}
   end
 
   @impl true
@@ -132,8 +195,18 @@ defmodule LightAgent.Core.SessionServer do
 
     case message do
       %{"tool_calls" => tool_calls} when is_list(tool_calls) ->
+        plan_phase =
+          if state.mode == :plan and
+               Map.get(state.plan_state, "status") != "applying",
+             do: :draft,
+             else: :apply
+
         tool_results =
-          LightAgent.Core.Skill.Runner.handle_tool_call(tool_calls)
+          LightAgent.Core.Skill.Runner.handle_tool_call(
+            tool_calls,
+            mode: state.mode,
+            plan_phase: plan_phase
+          )
 
         state =
           state
@@ -169,6 +242,8 @@ defmodule LightAgent.Core.SessionServer do
           |> update_in([:history], fn history ->
             Session.append_history(history, message)
           end)
+          |> maybe_capture_plan_from_content(content)
+          |> maybe_advance_plan_progress()
           |> persist_history()
 
         {{:done, content, step_usage}, state}
@@ -229,5 +304,124 @@ defmodule LightAgent.Core.SessionServer do
   defp persist_history(state) do
     _ = SessionMemoryStore.persist_session(state.id, state.history)
     state
+  end
+
+  defp default_plan_state do
+    %{
+      "status" => "idle",
+      "title" => nil,
+      "tasks" => [],
+      "raw_plan" => nil,
+      "revision" => 0
+    }
+  end
+
+  defp normalize_plan_tasks(plan_state) do
+    tasks =
+      plan_state
+      |> Map.get("tasks", [])
+      |> Enum.with_index(1)
+      |> Enum.map(fn {task, idx} ->
+        %{
+          "id" => Map.get(task, "id", "T#{idx}"),
+          "text" => Map.get(task, "text", ""),
+          "status" => Map.get(task, "status", "pending"),
+          "note" => Map.get(task, "note")
+        }
+      end)
+
+    Map.put(plan_state, "tasks", tasks)
+  end
+
+  defp maybe_capture_plan_from_content(state, content) do
+    if state.mode == :plan and Map.get(state.plan_state, "status") != "applying" do
+      case Jason.decode(content) do
+        {:ok, %{"title" => title, "tasks" => tasks}} when is_list(tasks) ->
+          plan_state =
+            state.plan_state
+            |> Map.put("status", "ready")
+            |> Map.put("title", title)
+            |> Map.put("tasks", tasks)
+            |> Map.put("raw_plan", content)
+            |> Map.update("revision", 1, &(&1 + 1))
+            |> normalize_plan_tasks()
+
+          %{state | plan_state: plan_state}
+
+        _ ->
+          state
+      end
+    else
+      state
+    end
+  end
+
+  defp maybe_advance_plan_progress(state) do
+    if state.mode == :plan and Map.get(state.plan_state, "status") == "applying" do
+      tasks = Map.get(state.plan_state, "tasks", [])
+
+      {updated, changed?} =
+        cond do
+          Enum.any?(tasks, &(&1["status"] == "in_progress")) ->
+            {
+              Enum.map(tasks, fn task ->
+                if task["status"] == "in_progress",
+                  do: Map.put(task, "status", "done"),
+                  else: task
+              end),
+              true
+            }
+
+          Enum.any?(tasks, &(&1["status"] == "pending")) ->
+            {
+              mark_next_pending_in_progress(tasks),
+              true
+            }
+
+          true ->
+            {tasks, false}
+        end
+
+      plan_state =
+        state.plan_state
+        |> Map.put("tasks", updated)
+        |> then(fn plan ->
+          if Enum.all?(updated, &(&1["status"] == "done")) and updated != [] do
+            Map.put(plan, "status", "completed")
+          else
+            plan
+          end
+        end)
+
+      if changed?, do: %{state | plan_state: plan_state}, else: state
+    else
+      state
+    end
+  end
+
+  defp mark_first_pending_in_progress(state) do
+    tasks = Map.get(state.plan_state, "tasks", [])
+
+    updated =
+      if Enum.any?(tasks, &(&1["status"] == "in_progress")) do
+        tasks
+      else
+        mark_next_pending_in_progress(tasks)
+      end
+
+    put_in(state, [:plan_state, "tasks"], updated)
+  end
+
+  defp mark_next_pending_in_progress(tasks) do
+    {updated, _} =
+      Enum.map_reduce(tasks, false, fn task, promoted ->
+        if not promoted and task["status"] == "pending" do
+          {Map.put(task, "status", "in_progress"), true}
+        else
+          {task, promoted}
+        end
+      end)
+
+    updated
   end
 end
