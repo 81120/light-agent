@@ -149,112 +149,54 @@ defmodule Mix.Tasks.LightAgent.Chat do
         emit_status(:success, "已退出 plan mode", "当前模式=normal")
         :cont
 
-      {:command, :plan, :show} ->
-        IO.puts(render_plan())
-        :cont
-
-      {:command, :plan, :create} ->
-        mode = LightAgent.Core.Worker.current_mode()
-
-        if mode != :plan do
-          emit_status(:error, "请先进入 plan mode", "先执行 /plan on")
-        else
-          reply = run_agent_with_usage(plan_create_prompt())
-
-          case upsert_plan_from_reply(reply) do
-            :ok ->
-              emit_status(:success, "计划草案已生成", "可用 /plan show 查看完整内容")
-              IO.puts(render_plan())
-
-            :error ->
-              retry_reply = run_agent_with_usage(plan_retry_prompt())
-
-              case upsert_plan_from_reply(retry_reply) do
-                :ok ->
-                  emit_status(:success, "计划草案已生成", "可用 /plan show 查看完整内容")
-                  IO.puts(render_plan())
-
-                :error ->
-                  emit_status(:error, "计划解析失败", "请重试 /plan create")
-                  IO.puts(format_content(retry_reply))
-              end
-          end
-        end
-
-        :cont
-
-      {:command, :plan, :edit, ""} ->
-        emit_status(:error, "缺少参数", "用法: /plan edit <修改要求>")
-        :cont
-
-      {:command, :plan, :edit, edit_text} ->
-        mode = LightAgent.Core.Worker.current_mode()
-
-        if mode != :plan do
-          emit_status(:error, "请先进入 plan mode", "先执行 /plan on")
-        else
-          reply = run_agent_with_usage(plan_edit_prompt(edit_text))
-
-          case upsert_plan_from_reply(reply) do
-            :ok ->
-              emit_status(:success, "计划草案已更新", "可用 /plan show 查看完整内容")
-              IO.puts(render_plan())
-
-            :error ->
-              retry_reply = run_agent_with_usage(plan_retry_prompt())
-
-              case upsert_plan_from_reply(retry_reply) do
-                :ok ->
-                  emit_status(:success, "计划草案已更新", "可用 /plan show 查看完整内容")
-                  IO.puts(render_plan())
-
-                :error ->
-                  emit_status(:error, "计划解析失败", "请重试 /plan edit")
-                  IO.puts(format_content(retry_reply))
-              end
-          end
-        end
-
-        :cont
-
       {:command, :plan, :apply} ->
-        case LightAgent.Core.Worker.apply_plan() do
-          :ok ->
-            emit_status(:success, "计划开始执行", "status=applying")
-            IO.puts(render_plan_progress())
+        mode = LightAgent.Core.Worker.current_mode()
 
-            io_device = Process.group_leader()
+        cond do
+          mode != :plan ->
+            emit_status(:error, "请先进入 plan mode", "先执行 /plan on")
 
-            reply =
-              run_agent_with_usage(
-                "请按照当前计划自动继续执行：优先完成 in_progress 子任务，完成后推进到下一个，直到全部任务完成。"
-              )
+          true ->
+            case LightAgent.Core.Worker.apply_plan() do
+              :ok ->
+                emit_status(:success, "计划开始执行", "status=applying")
+                IO.puts(render_plan_progress())
 
-            IO.puts(
-              io_device,
-              [
-                primary(role_badge("assistant")),
-                format_content(reply)
-              ]
-              |> Enum.join("\n")
-            )
+                io_device = Process.group_leader()
 
-          {:error, :empty_plan} ->
-            emit_status(:error, "没有可执行计划", "请先 /plan create")
+                reply =
+                  run_agent_with_usage(
+                    "请按照当前计划自动继续执行：优先完成 in_progress 子任务，完成后推进到下一个，直到全部任务完成。"
+                  )
 
-          {:error, reason} ->
-            emit_status(:error, "执行失败", inspect(reason))
+                IO.puts(
+                  io_device,
+                  [
+                    primary(role_badge("assistant")),
+                    format_content(reply)
+                  ]
+                  |> Enum.join("\n")
+                )
+
+                plan = LightAgent.Core.Worker.current_plan()
+
+                if Map.get(plan, "status") == "completed" do
+                  :ok = LightAgent.Core.Worker.set_mode(:normal)
+                  emit_status(:success, "计划执行完成，已退出 plan mode", "当前模式=normal")
+                end
+
+              {:error, :empty_plan} ->
+                emit_status(:error, "没有可执行计划", "请先在 plan mode 输入需求来生成计划")
+
+              {:error, reason} ->
+                emit_status(:error, "执行失败", inspect(reason))
+            end
         end
 
         :cont
 
       {:command, :plan, :progress} ->
         IO.puts(render_plan_progress())
-        :cont
-
-      {:command, :plan, :reset} ->
-        :ok = LightAgent.Core.Worker.reset_plan()
-        emit_status(:success, "已重置计划", "status=idle")
         :cont
 
       {:command, :exit} ->
@@ -270,7 +212,18 @@ defmodule Mix.Tasks.LightAgent.Chat do
 
       {:message, content} ->
         io_device = Process.group_leader()
-        reply = run_agent_with_usage(content)
+        mode = LightAgent.Core.Worker.current_mode()
+        plan = LightAgent.Core.Worker.current_plan()
+
+        agent_input =
+          if mode == :plan and
+               Map.get(plan, "status") in ["idle", "drafting", "ready"] do
+            plan_drafting_prompt(content)
+          else
+            content
+          end
+
+        reply = run_agent_with_usage(agent_input)
 
         IO.puts(
           io_device,
@@ -280,6 +233,19 @@ defmodule Mix.Tasks.LightAgent.Chat do
           ]
           |> Enum.join("\n")
         )
+
+        if mode == :plan and
+             Map.get(plan, "status") in ["idle", "drafting", "ready"] do
+          latest_plan = LightAgent.Core.Worker.current_plan()
+
+          case Map.get(latest_plan, "status") do
+            "ready" ->
+              emit_status(:success, "计划已更新", "可继续输入迭代，或执行 /plan apply")
+
+            _ ->
+              emit_status(:warn, "计划仍在制定中", "请继续补充需求，直到产出结构化计划")
+          end
+        end
 
         :cont
     end
@@ -745,44 +711,9 @@ defmodule Mix.Tasks.LightAgent.Chat do
     Enum.join([primary("sessions>") | lines], "\n")
   end
 
-  defp render_plan() do
-    plan = LightAgent.Core.Worker.current_plan()
-
-    title = Map.get(plan, "title") || "(untitled)"
-    status = Map.get(plan, "status", "idle")
-    revision = Map.get(plan, "revision", 0)
-
-    tasks =
-      plan
-      |> Map.get("tasks", [])
-      |> Enum.map(fn task ->
-        "- [#{Map.get(task, "status", "pending")}] #{Map.get(task, "id", "T?")}: #{Map.get(task, "text", "")}"
-      end)
-
-    if tasks == [] do
-      Enum.join(
-        [
-          primary("plan>"),
-          "status=#{status} revision=#{revision}",
-          "title=#{title}",
-          muted("(no tasks)")
-        ],
-        "\n"
-      )
-    else
-      Enum.join(
-        [
-          primary("plan>"),
-          "status=#{status} revision=#{revision}",
-          "title=#{title}" | tasks
-        ],
-        "\n"
-      )
-    end
-  end
-
   defp render_plan_progress() do
     progress = LightAgent.Core.Worker.plan_progress()
+    status = Map.get(progress, "status", "idle")
     done = Map.get(progress, "done", 0)
     total = Map.get(progress, "total", 0)
 
@@ -794,7 +725,10 @@ defmodule Mix.Tasks.LightAgent.Chat do
       end)
 
     Enum.join(
-      [primary("plan-progress>"), "done=#{done}/#{total}" | task_lines],
+      [
+        primary("plan-progress>"),
+        "status=#{status} done=#{done}/#{total}" | task_lines
+      ],
       "\n"
     )
   end
@@ -808,30 +742,15 @@ defmodule Mix.Tasks.LightAgent.Chat do
     end
   end
 
-  defp plan_create_prompt do
-    "请输出完整执行计划，严格返回 JSON：{\"title\": string, \"tasks\": [{\"id\": \"T1\", \"text\": string}] }"
+  defp plan_drafting_prompt(user_feedback) do
+    [
+      "你当前处于 plan 制定阶段。你的唯一目标是根据用户反馈制定或更新可执行计划；不要调用任何工具，不要执行任务。",
+      "必须仅输出 JSON，格式严格为：{\"title\": string, \"tasks\": [{\"id\": \"T1\", \"text\": string}] }。",
+      "tasks 必须非空，text 要具体、可执行。",
+      "用户反馈：#{user_feedback}"
+    ]
+    |> Enum.join("\n")
   end
-
-  defp plan_edit_prompt(edit_text) do
-    "请基于当前计划做修改：#{edit_text}。严格返回 JSON：{\"title\": string, \"tasks\": [{\"id\": \"T1\", \"text\": string}] }"
-  end
-
-  defp plan_retry_prompt do
-    "你上一次输出未能被解析。请仅返回 JSON，格式必须是：{\"title\": string, \"tasks\": [{\"id\": \"T1\", \"text\": string}] }"
-  end
-
-  defp upsert_plan_from_reply(reply) when is_binary(reply) do
-    case Jason.decode(reply) do
-      {:ok, %{"title" => _title, "tasks" => tasks} = plan}
-      when is_list(tasks) and tasks != [] ->
-        LightAgent.Core.Worker.update_plan(plan)
-
-      _ ->
-        :error
-    end
-  end
-
-  defp upsert_plan_from_reply(_), do: :error
 
   defp ansi_enabled?() do
     IO.ANSI.enabled?() and is_nil(System.get_env("NO_COLOR"))

@@ -17,7 +17,7 @@ LightAgent is an AI Agent framework developed in Elixir with the following featu
 - **Token Usage Tracking**: Real-time tracking and statistics of Token usage
 - **Secure Tool Execution**: Only write/delete/command-execution tools require interactive approval
 - **Sequential Tool Execution**: Tool calls are executed one by one in model-returned order
-- **Plan Mode**: Supports create/edit/show/apply/progress/reset workflow with subtask status tracking
+- **Plan Mode**: Supports on/off/progress/apply workflow; in drafting stage it only iterates plan, in apply stage it executes subtasks and tracks progress
 
 ## Architecture
 
@@ -182,13 +182,11 @@ Provides rich command-line interaction:
 - `/delete <id>` - Delete specified session
 - `/history` - Display current session history
 - `/usage` - Display Token usage statistics
-- `/plan on|off` - Enable/disable plan mode
-- `/plan create` - Generate a complete plan draft (JSON-based)
-- `/plan edit <text>` - Iteratively refine the plan draft
-- `/plan show` - Show full plan details (title/revision/tasks)
-- `/plan apply` - Start automatic execution of the plan
-- `/plan progress` - Show live subtask progress (done/total)
-- `/plan reset` - Reset current plan state
+- `/plan on|off` - Enter/exit plan mode
+- `/plan progress` - Show current plan status (`drafting|ready|applying|completed`) and subtask progress
+- `/plan apply` - Execute the drafted plan (auto-exits plan mode when completed)
+- In plan mode before apply, regular user messages are used to iteratively draft/update the plan (tool execution is blocked)
+- In apply/completed stage, tool calls are no longer treated as drafting-stage blocked calls
 - `/exit` - Exit program
 
 #### 5. Usage Tracking
@@ -236,10 +234,11 @@ User Input
             └──────────────┘  └──────────┘
                      │
                      ▼
-            ┌──────────────┐
-            │ Plan Gate    │
-            │ draft/apply  │
-            └──────────────┘
+            ┌──────────────────────────────┐
+            │ Plan Gate (4 statuses)       │
+            │ drafting/ready => block tool │
+            │ applying/completed => allow  │
+            └──────────────────────────────┘
                      │
                      ▼
             ┌──────────────┐
@@ -264,6 +263,12 @@ User Input
                      ▼
               Recursive Call
 ```
+
+Flow legend (matches `/plan progress`):
+- `drafting`: collecting user feedback and iterating plan JSON
+- `ready`: valid plan available, waiting for `/plan apply`
+- `applying`: executing subtasks and advancing task statuses
+- `completed`: all subtasks done; CLI auto-switches back to normal mode
 
 ## API Usage
 
@@ -318,12 +323,13 @@ plan = LightAgent.Core.Worker.current_plan()
 :ok = LightAgent.Core.Worker.update_plan(%{"title" => "Demo", "tasks" => [%{"id" => "T1", "text" => "step"}]})
 :ok = LightAgent.Core.Worker.apply_plan()
 progress = LightAgent.Core.Worker.plan_progress()
-:ok = LightAgent.Core.Worker.reset_plan()
 ```
 
 Plan notes:
-- In `plan + draft` phase, tool execution is blocked (`plan_mode_blocked`).
-- In `plan + apply` phase, tools execute sequentially and task progress is updated.
+- Plan statuses: `drafting -> ready -> applying -> completed`.
+- In `plan + drafting/ready` phase, tool execution is blocked (`plan_mode_blocked`).
+- In `plan + applying/completed` phase, tool calls are not blocked by drafting gate.
+- During `applying`, subtask state advances each turn (`in_progress -> done`, and next pending task is promoted).
 - Sensitive tool confirmation is only required for: `run_command`, `write_file`, `delete_file`, `remove_file`.
 
 

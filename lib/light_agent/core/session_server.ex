@@ -61,9 +61,18 @@ defmodule LightAgent.Core.SessionServer do
   end
 
   @impl true
-  def handle_call({:set_mode, mode}, _from, state)
-      when mode in [:normal, :plan] do
-    {:reply, :ok, %{state | mode: mode}}
+  def handle_call({:set_mode, :normal}, _from, state) do
+    {:reply, :ok, %{state | mode: :normal}}
+  end
+
+  @impl true
+  def handle_call({:set_mode, :plan}, _from, state) do
+    plan_state =
+      default_plan_state()
+      |> Map.put("status", "drafting")
+
+    state = %{state | mode: :plan, plan_state: plan_state} |> persist_history()
+    {:reply, :ok, state}
   end
 
   @impl true
@@ -112,8 +121,11 @@ defmodule LightAgent.Core.SessionServer do
 
     done = Enum.count(tasks, &(&1["status"] == "done"))
     total = length(tasks)
+    status = Map.get(state.plan_state, "status", "idle")
 
-    {:reply, %{"done" => done, "total" => total, "tasks" => tasks}, state}
+    {:reply,
+     %{"status" => status, "done" => done, "total" => total, "tasks" => tasks},
+     state}
   end
 
   @impl true
@@ -196,10 +208,9 @@ defmodule LightAgent.Core.SessionServer do
     case message do
       %{"tool_calls" => tool_calls} when is_list(tool_calls) ->
         plan_phase =
-          if state.mode == :plan and
-               Map.get(state.plan_state, "status") != "applying",
-             do: :draft,
-             else: :apply
+          if state.mode == :plan and plan_in_drafting_phase?(state.plan_state),
+            do: :draft,
+            else: :apply
 
         tool_results =
           LightAgent.Core.Skill.Runner.handle_tool_call(
@@ -216,6 +227,7 @@ defmodule LightAgent.Core.SessionServer do
           |> update_in([:history], fn history ->
             Session.append_history_list(history, tool_results)
           end)
+          |> maybe_advance_plan_progress()
           |> persist_history()
 
         if has_validation_error?(tool_results) and
@@ -334,9 +346,10 @@ defmodule LightAgent.Core.SessionServer do
   end
 
   defp maybe_capture_plan_from_content(state, content) do
-    if state.mode == :plan and Map.get(state.plan_state, "status") != "applying" do
-      case Jason.decode(content) do
-        {:ok, %{"title" => title, "tasks" => tasks}} when is_list(tasks) ->
+    if state.mode == :plan and plan_in_drafting_phase?(state.plan_state) do
+      case decode_plan_payload(content) do
+        {:ok, %{"title" => title, "tasks" => tasks}}
+        when is_list(tasks) and tasks != [] ->
           plan_state =
             state.plan_state
             |> Map.put("status", "ready")
@@ -356,6 +369,37 @@ defmodule LightAgent.Core.SessionServer do
     end
   end
 
+  defp decode_plan_payload(content) when is_binary(content) do
+    case Jason.decode(content) do
+      {:ok, payload} ->
+        {:ok, payload}
+
+      _ ->
+        content
+        |> extract_json_block()
+        |> case do
+          nil -> :error
+          json -> Jason.decode(json)
+        end
+    end
+  end
+
+  defp decode_plan_payload(_), do: :error
+
+  defp extract_json_block(content) do
+    Regex.run(~r/```(?:json)?\s*(\{[\s\S]*\})\s*```/i, content,
+      capture: :all_but_first
+    )
+    |> case do
+      [json] -> json
+      _ -> nil
+    end
+  end
+
+  defp plan_in_drafting_phase?(plan_state) do
+    Map.get(plan_state, "status", "idle") in ["idle", "drafting", "ready"]
+  end
+
   defp maybe_advance_plan_progress(state) do
     if state.mode == :plan and Map.get(state.plan_state, "status") == "applying" do
       tasks = Map.get(state.plan_state, "tasks", [])
@@ -363,14 +407,21 @@ defmodule LightAgent.Core.SessionServer do
       {updated, changed?} =
         cond do
           Enum.any?(tasks, &(&1["status"] == "in_progress")) ->
-            {
+            done_marked =
               Enum.map(tasks, fn task ->
                 if task["status"] == "in_progress",
                   do: Map.put(task, "status", "done"),
                   else: task
-              end),
-              true
-            }
+              end)
+
+            promoted =
+              if Enum.any?(done_marked, &(&1["status"] == "pending")) do
+                mark_next_pending_in_progress(done_marked)
+              else
+                done_marked
+              end
+
+            {promoted, true}
 
           Enum.any?(tasks, &(&1["status"] == "pending")) ->
             {
@@ -386,10 +437,15 @@ defmodule LightAgent.Core.SessionServer do
         state.plan_state
         |> Map.put("tasks", updated)
         |> then(fn plan ->
-          if Enum.all?(updated, &(&1["status"] == "done")) and updated != [] do
-            Map.put(plan, "status", "completed")
-          else
-            plan
+          cond do
+            Enum.all?(updated, &(&1["status"] == "done")) and updated != [] ->
+              Map.put(plan, "status", "completed")
+
+            Enum.any?(updated, &(&1["status"] == "in_progress")) ->
+              Map.put(plan, "status", "applying")
+
+            true ->
+              plan
           end
         end)
 
