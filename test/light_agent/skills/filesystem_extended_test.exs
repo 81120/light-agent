@@ -73,11 +73,12 @@ defmodule LightAgent.Skills.FilesystemExtendedTest do
     end
 
     test "writes and reads file with unicode content" do
-      tmp_dir = System.tmp_dir!()
+      test_dir = Path.join(File.cwd!(), ".tmp_light_agent_tests")
+      File.mkdir_p!(test_dir)
 
       path =
         Path.join(
-          tmp_dir,
+          test_dir,
           "light_agent_unicode_test_#{System.unique_integer([:positive])}.txt"
         )
 
@@ -96,6 +97,39 @@ defmodule LightAgent.Skills.FilesystemExtendedTest do
       assert result == unicode_content
     end
 
+    test "rejects writes outside allowed roots" do
+      result =
+        Filesystem.exec(:write_file, %{
+          "path" => "/tmp/light_agent_outside_test.txt",
+          "content" => "test"
+        })
+
+      assert String.contains?(result, "路径不在允许范围内")
+    end
+
+    test "normalizes relative path inside project root" do
+      test_dir = Path.join(File.cwd!(), ".tmp_light_agent_tests")
+      File.mkdir_p!(test_dir)
+
+      relative_path =
+        ".tmp_light_agent_tests/../.tmp_light_agent_tests/normalized_test.txt"
+
+      write_result =
+        Filesystem.exec(:write_file, %{
+          "path" => relative_path,
+          "content" => "ok"
+        })
+
+      expected_path =
+        Path.join(test_dir, "normalized_test.txt")
+        |> Path.expand()
+
+      assert write_result == "成功写入文件 #{expected_path}"
+
+      read_result = Filesystem.exec(:read_file, %{"path" => relative_path})
+      assert read_result == "ok"
+    end
+
     test "writes to invalid path returns error" do
       result =
         Filesystem.exec(:write_file, %{
@@ -106,5 +140,31 @@ defmodule LightAgent.Skills.FilesystemExtendedTest do
       assert is_binary(result)
       assert String.contains?(result, "失败")
     end
+  end
+end
+
+defmodule LightAgent.Skills.LoadFsSkillTest do
+  use ExUnit.Case, async: true
+
+  alias LightAgent.Core.AgentPaths
+  alias LightAgent.Skills.LoadFsSkill
+
+  test "loads SKILL.md from allowed root" do
+    skill_name = "test_skill_#{System.unique_integer([:positive])}"
+    skill_dir = Path.join(AgentPaths.skills_root(), skill_name)
+    skill_md = Path.join(skill_dir, "SKILL.md")
+
+    File.mkdir_p!(skill_dir)
+    File.write!(skill_md, "# test skill")
+
+    result = LoadFsSkill.exec(:load_skill_md, %{"skill_name" => skill_name})
+
+    assert result == "# test skill"
+  end
+
+  test "rejects invalid skill name" do
+    result = LoadFsSkill.exec(:load_skill_md, %{"skill_name" => "../escape"})
+
+    assert String.contains?(result, "非法 skill_name")
   end
 end

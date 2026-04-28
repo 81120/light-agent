@@ -3,6 +3,8 @@ defmodule LightAgent.Skills.Filesystem do
 
   use LightAgent.Core.Skill.CodeBasedSkill
 
+  alias LightAgent.Core.AgentPaths
+
   defmodule ReadFileParams do
     use Ecto.Schema
     import Ecto.Changeset
@@ -45,9 +47,12 @@ defmodule LightAgent.Skills.Filesystem do
 
   @impl true
   def exec(:read_file, %{"path" => path}) do
-    case File.read(path) do
-      {:ok, content} ->
-        content
+    with {:ok, normalized_path} <- AgentPaths.normalize_and_authorize_path(path),
+         {:ok, content} <- File.read(normalized_path) do
+      content
+    else
+      {:error, :outside_allowed_roots} ->
+        "读取文件 #{path} 失败: 路径不在允许范围内"
 
       {:error, reason} ->
         "读取文件 #{path} 失败: #{inspect(reason)}"
@@ -59,9 +64,12 @@ defmodule LightAgent.Skills.Filesystem do
 
   @impl true
   def exec(:write_file, %{"path" => path, "content" => content}) do
-    case File.write(path, content) do
-      :ok ->
-        "成功写入文件 #{path}"
+    with {:ok, normalized_path} <- AgentPaths.normalize_and_authorize_path(path),
+         :ok <- File.write(normalized_path, content) do
+      "成功写入文件 #{normalized_path}"
+    else
+      {:error, :outside_allowed_roots} ->
+        "写入文件 #{path} 失败: 路径不在允许范围内"
 
       {:error, reason} ->
         "写入文件 #{path} 失败: #{inspect(reason)}"

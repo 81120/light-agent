@@ -1,6 +1,7 @@
 defmodule LightAgent.Core.SessionServer do
   use GenServer
 
+  alias LightAgent.Core.LLM.AssistantMessageNormalizer
   alias LightAgent.Core.SessionMemoryStore
   alias LightAgent.Core.Worker.Session
   alias LightAgent.Core.Worker.Usage
@@ -140,7 +141,7 @@ defmodule LightAgent.Core.SessionServer do
   end
 
   defp llm_call_opts() do
-    case Application.get_env(:LightAgent, :llm_request_fun) do
+    case Application.get_env(:light_agent, :llm_request_fun) do
       nil -> []
       request_fun -> [request_fun: request_fun]
     end
@@ -196,14 +197,7 @@ defmodule LightAgent.Core.SessionServer do
     step_usage = Usage.build_step_usage(usage, token_total)
     state = %{state | token_usage_total: token_total}
 
-    message =
-      response
-      |> Map.get("choices", [])
-      |> List.first()
-      |> case do
-        %{"message" => msg} -> msg
-        _ -> nil
-      end
+    message = AssistantMessageNormalizer.normalize_assistant_message(response)
 
     case message do
       %{"tool_calls" => tool_calls} when is_list(tool_calls) ->

@@ -1,16 +1,21 @@
 defmodule LightAgent.Core.LLM do
   require Logger
 
+  alias LightAgent.Core.LLM.RequestMapper
+
   @default_max_attempts 3
   @default_retry_delay_ms 200
 
   def call(messages, tools \\ [], opts \\ []) do
-    body = %{
-      model: model(),
-      messages: messages,
-      tools: tools,
-      temperature: 1
-    }
+    format = api_format(opts)
+
+    body =
+      RequestMapper.build_request_body(
+        format,
+        model(),
+        messages,
+        tools
+      )
 
     request_fun = Keyword.get(opts, :request_fun, &default_request/1)
 
@@ -106,6 +111,25 @@ defmodule LightAgent.Core.LLM do
         Logger.debug("#{prefix}: <json encode failed: #{inspect(reason)}>")
     end
   end
+
+  defp api_format(opts) do
+    opts
+    |> Keyword.get(:api_format, configured_api_format())
+    |> normalize_api_format()
+  end
+
+  defp configured_api_format do
+    Application.fetch_env!(:light_agent, Core.LLM)
+    |> Keyword.get(:api_format, :chat_completions)
+  end
+
+  defp normalize_api_format(format)
+       when format in [:chat_completions, :responses],
+       do: format
+
+  defp normalize_api_format("chat_completions"), do: :chat_completions
+  defp normalize_api_format("responses"), do: :responses
+  defp normalize_api_format(_), do: :chat_completions
 
   defp api_key do
     Application.fetch_env!(:light_agent, Core.LLM)[:api_key]

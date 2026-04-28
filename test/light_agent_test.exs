@@ -56,11 +56,12 @@ defmodule LightAgent.Skills.FilesystemTest do
   use ExUnit.Case, async: true
 
   test "filesystem skill reads and writes files" do
-    tmp_dir = System.tmp_dir!()
+    test_dir = Path.join(File.cwd!(), ".tmp_light_agent_tests")
+    File.mkdir_p!(test_dir)
 
     path =
       Path.join(
-        tmp_dir,
+        test_dir,
         "light_agent_test_#{System.unique_integer([:positive])}.txt"
       )
 
@@ -68,7 +69,7 @@ defmodule LightAgent.Skills.FilesystemTest do
              "path" => path,
              "content" => "abc"
            }) ==
-             "成功写入文件 #{path}"
+             "成功写入文件 #{Path.expand(path)}"
 
     assert LightAgent.Skills.Filesystem.exec(:read_file, %{
              "path" => path
@@ -133,11 +134,12 @@ defmodule LightAgent.Core.Skill.RunnerSecurityTest do
   end
 
   test "read_file does not require confirmation" do
-    tmp_dir = System.tmp_dir!()
+    test_dir = Path.join(File.cwd!(), ".tmp_light_agent_tests")
+    File.mkdir_p!(test_dir)
 
     path =
       Path.join(
-        tmp_dir,
+        test_dir,
         "light_agent_read_runner_#{System.unique_integer([:positive])}.txt"
       )
 
@@ -261,7 +263,7 @@ defmodule LightAgent.Core.SessionServerPlanStateTest do
          }}
       )
 
-    prev_request_fun = Application.get_env(:LightAgent, :llm_request_fun)
+    prev_request_fun = Application.get_env(:light_agent, :llm_request_fun)
 
     fake_request_fun = fn _body ->
       {:ok,
@@ -291,7 +293,7 @@ defmodule LightAgent.Core.SessionServerPlanStateTest do
        }}
     end
 
-    Application.put_env(:LightAgent, :llm_request_fun, fake_request_fun)
+    Application.put_env(:light_agent, :llm_request_fun, fake_request_fun)
 
     try do
       assert :ok =
@@ -329,9 +331,9 @@ defmodule LightAgent.Core.SessionServerPlanStateTest do
       assert progress2["done"] == 2
     after
       if prev_request_fun do
-        Application.put_env(:LightAgent, :llm_request_fun, prev_request_fun)
+        Application.put_env(:light_agent, :llm_request_fun, prev_request_fun)
       else
-        Application.delete_env(:LightAgent, :llm_request_fun)
+        Application.delete_env(:light_agent, :llm_request_fun)
       end
 
       GenServer.stop(pid)
@@ -342,7 +344,7 @@ defmodule LightAgent.Core.SessionServerPlanStateTest do
     session_id = "plan-fenced-#{System.unique_integer([:positive])}"
     {:ok, pid} = SessionServer.start_link(session_id: session_id, history: [])
 
-    prev_request_fun = Application.get_env(:LightAgent, :llm_request_fun)
+    prev_request_fun = Application.get_env(:light_agent, :llm_request_fun)
 
     fenced_json =
       ~s|```json\n{"title":"demo","tasks":[{"id":"T1","text":"step 1"}]}\n```|
@@ -361,7 +363,7 @@ defmodule LightAgent.Core.SessionServerPlanStateTest do
        }}
     end
 
-    Application.put_env(:LightAgent, :llm_request_fun, fake_request_fun)
+    Application.put_env(:light_agent, :llm_request_fun, fake_request_fun)
 
     try do
       :ok =
@@ -378,9 +380,9 @@ defmodule LightAgent.Core.SessionServerPlanStateTest do
       assert length(plan["tasks"]) == 1
     after
       if prev_request_fun do
-        Application.put_env(:LightAgent, :llm_request_fun, prev_request_fun)
+        Application.put_env(:light_agent, :llm_request_fun, prev_request_fun)
       else
-        Application.delete_env(:LightAgent, :llm_request_fun)
+        Application.delete_env(:light_agent, :llm_request_fun)
       end
 
       GenServer.stop(pid)
@@ -406,7 +408,7 @@ defmodule LightAgent.Core.SessionServerPlanStateTest do
          }}
       )
 
-    prev_request_fun = Application.get_env(:LightAgent, :llm_request_fun)
+    prev_request_fun = Application.get_env(:light_agent, :llm_request_fun)
 
     fake_request_fun = fn _body ->
       {:ok,
@@ -436,7 +438,7 @@ defmodule LightAgent.Core.SessionServerPlanStateTest do
        }}
     end
 
-    Application.put_env(:LightAgent, :llm_request_fun, fake_request_fun)
+    Application.put_env(:light_agent, :llm_request_fun, fake_request_fun)
 
     try do
       assert :ok =
@@ -467,9 +469,9 @@ defmodule LightAgent.Core.SessionServerPlanStateTest do
       assert String.starts_with?(result.content, "defmodule")
     after
       if prev_request_fun do
-        Application.put_env(:LightAgent, :llm_request_fun, prev_request_fun)
+        Application.put_env(:light_agent, :llm_request_fun, prev_request_fun)
       else
-        Application.delete_env(:LightAgent, :llm_request_fun)
+        Application.delete_env(:light_agent, :llm_request_fun)
       end
 
       GenServer.stop(pid)
@@ -485,4 +487,276 @@ defmodule LightAgent.Core.SessionServerPlanStateTest do
 
     GenServer.stop(pid)
   end
+end
+
+defmodule LightAgent.Core.LLMFormatTest do
+  use ExUnit.Case, async: true
+
+  alias LightAgent.Core.LLM
+
+  test "builds chat completions payload" do
+    request_fun = fn body ->
+      send(self(), {:request_body, body})
+      {:ok, %{body: %{"choices" => []}}}
+    end
+
+    assert {:ok, _} =
+             LLM.call(
+               [%{role: "user", content: "hello"}],
+               [],
+               request_fun: request_fun,
+               api_format: :chat_completions
+             )
+
+    assert_receive {:request_body, body}
+    assert Map.has_key?(body, :messages)
+    refute Map.has_key?(body, :input)
+  end
+
+  test "builds responses payload when api_format is responses" do
+    request_fun = fn body ->
+      send(self(), {:request_body, body})
+      {:ok, %{body: %{"choices" => []}}}
+    end
+
+    tools = [
+      %{
+        type: "function",
+        function: %{
+          name: :read_file,
+          description: "读取文件",
+          parameters: %{
+            "type" => "object",
+            "properties" => %{"path" => %{"type" => "string"}}
+          }
+        }
+      }
+    ]
+
+    assert {:ok, _} =
+             LLM.call(
+               [%{role: "user", content: "hello"}],
+               tools,
+               request_fun: request_fun,
+               api_format: :responses
+             )
+
+    assert_receive {:request_body, body}
+    assert Map.has_key?(body, :input)
+    refute Map.has_key?(body, :messages)
+
+    assert [response_tool] = body[:tools]
+    assert response_tool[:type] == "function"
+    assert response_tool[:name] == "read_file"
+    refute Map.has_key?(response_tool, :function)
+  end
+
+  test "maps assistant tool calls and tool outputs for responses input" do
+    request_fun = fn body ->
+      send(self(), {:request_body, body})
+      {:ok, %{body: %{"choices" => []}}}
+    end
+
+    messages = [
+      %{role: "user", content: "hello"},
+      %{
+        role: "assistant",
+        tool_calls: [
+          %{
+            "id" => "tool_1",
+            "function" => %{
+              "name" => "read_file",
+              "arguments" => Jason.encode!(%{"path" => "./x"})
+            }
+          }
+        ]
+      },
+      %{role: "tool", tool_call_id: "tool_1", content: "ok"}
+    ]
+
+    assert {:ok, _} =
+             LLM.call(
+               messages,
+               [],
+               request_fun: request_fun,
+               api_format: :responses
+             )
+
+    assert_receive {:request_body, body}
+    assert is_list(body[:input])
+
+    assert Enum.any?(body[:input], fn item ->
+             item["type"] == "function_call" and item["call_id"] == "tool_1"
+           end)
+
+    assert Enum.any?(body[:input], fn item ->
+             item["type"] == "function_call_output" and
+               item["call_id"] == "tool_1" and item["output"] == "ok"
+           end)
+
+    refute Enum.any?(body[:input], fn item -> item["role"] == "tool" end)
+  end
+end
+
+defmodule LightAgent.Core.SessionServerResponsesFormatTest do
+  use ExUnit.Case, async: false
+
+  alias LightAgent.Core.SessionServer
+
+  test "parses responses api text output" do
+    session_id = "responses-text-#{System.unique_integer([:positive])}"
+    {:ok, pid} = SessionServer.start_link(session_id: session_id, history: [])
+
+    prev_request_fun = Application.get_env(:light_agent, :llm_request_fun)
+    prev_llm_config = Application.get_env(:light_agent, Core.LLM)
+
+    test_pid = self()
+
+    fake_request_fun = fn body ->
+      send(test_pid, {:request_body, body})
+
+      {:ok,
+       %{
+         body: %{
+           "output" => [
+             %{
+               "type" => "message",
+               "content" => [
+                 %{"type" => "output_text", "text" => "responses ok"}
+               ]
+             }
+           ],
+           "usage" => %{
+             "prompt_tokens" => 1,
+             "completion_tokens" => 1,
+             "total_tokens" => 2
+           }
+         }
+       }}
+    end
+
+    Application.put_env(:light_agent, :llm_request_fun, fake_request_fun)
+
+    Application.put_env(
+      :light_agent,
+      Core.LLM,
+      Keyword.put(prev_llm_config || [], :api_format, :responses)
+    )
+
+    try do
+      assert {:done, "responses ok", _step_usage} =
+               GenServer.call(
+                 SessionServer.via_tuple(session_id),
+                 {:run_agent_step, "hello"},
+                 30_000
+               )
+
+      assert_receive {:request_body, body}
+      assert Map.has_key?(body, :input)
+      refute Map.has_key?(body, :messages)
+    after
+      restore_request_fun(prev_request_fun)
+      restore_llm_config(prev_llm_config)
+      GenServer.stop(pid)
+    end
+  end
+
+  test "parses responses api function call output" do
+    session_id = "responses-tool-#{System.unique_integer([:positive])}"
+    {:ok, pid} = SessionServer.start_link(session_id: session_id, history: [])
+
+    prev_request_fun = Application.get_env(:light_agent, :llm_request_fun)
+    prev_llm_config = Application.get_env(:light_agent, Core.LLM)
+
+    fake_request_fun = fn _body ->
+      {:ok,
+       %{
+         body: %{
+           "output" => [
+             %{
+               "type" => "function_call",
+               "id" => "tool_1",
+               "name" => "read_file",
+               "arguments" => %{"path" => __ENV__.file}
+             }
+           ],
+           "usage" => %{
+             "prompt_tokens" => 1,
+             "completion_tokens" => 1,
+             "total_tokens" => 2
+           }
+         }
+       }}
+    end
+
+    Application.put_env(:light_agent, :llm_request_fun, fake_request_fun)
+
+    Application.put_env(
+      :light_agent,
+      Core.LLM,
+      Keyword.put(prev_llm_config || [], :api_format, :responses)
+    )
+
+    try do
+      assert {:running, tool_results, _step_usage} =
+               GenServer.call(
+                 SessionServer.via_tuple(session_id),
+                 {:run_agent_step, "execute"},
+                 30_000
+               )
+
+      [result] = tool_results
+      assert result.name == "read_file"
+      assert String.starts_with?(result.content, "defmodule")
+    after
+      restore_request_fun(prev_request_fun)
+      restore_llm_config(prev_llm_config)
+      GenServer.stop(pid)
+    end
+  end
+
+  test "returns fallback message for invalid responses payload" do
+    session_id = "responses-invalid-#{System.unique_integer([:positive])}"
+    {:ok, pid} = SessionServer.start_link(session_id: session_id, history: [])
+
+    prev_request_fun = Application.get_env(:light_agent, :llm_request_fun)
+    prev_llm_config = Application.get_env(:light_agent, Core.LLM)
+
+    fake_request_fun = fn _body ->
+      {:ok, %{body: %{"output" => []}}}
+    end
+
+    Application.put_env(:light_agent, :llm_request_fun, fake_request_fun)
+
+    Application.put_env(
+      :light_agent,
+      Core.LLM,
+      Keyword.put(prev_llm_config || [], :api_format, :responses)
+    )
+
+    try do
+      assert {:done, "LLM 返回异常，请稍后重试。", _step_usage} =
+               GenServer.call(
+                 SessionServer.via_tuple(session_id),
+                 {:run_agent_step, "hello"},
+                 30_000
+               )
+    after
+      restore_request_fun(prev_request_fun)
+      restore_llm_config(prev_llm_config)
+      GenServer.stop(pid)
+    end
+  end
+
+  defp restore_request_fun(nil),
+    do: Application.delete_env(:light_agent, :llm_request_fun)
+
+  defp restore_request_fun(request_fun),
+    do: Application.put_env(:light_agent, :llm_request_fun, request_fun)
+
+  defp restore_llm_config(nil),
+    do: Application.delete_env(:light_agent, Core.LLM)
+
+  defp restore_llm_config(config),
+    do: Application.put_env(:light_agent, Core.LLM, config)
 end

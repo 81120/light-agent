@@ -8,4 +8,5 @@ end
 config :light_agent, Core.LLM,
   api_key: System.get_env("API_KEY"),
   base_url: System.get_env("BASE_URL"),
-  model: System.get_env("MODEL")
+  model: System.get_env("MODEL"),
+  api_format: System.get_env("API_FORMAT", "chat_completions")

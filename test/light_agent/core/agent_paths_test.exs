@@ -92,4 +92,43 @@ defmodule LightAgent.Core.AgentPathsTest do
       assert String.ends_with?(simple_path, "session-#{simple_session}.md")
     end
   end
+
+  describe "normalize_and_authorize_path/1" do
+    test "authorizes path inside project root" do
+      inside_path =
+        Path.join(File.cwd!(), "tmp/path_guard_test.txt")
+
+      assert {:ok, normalized} =
+               AgentPaths.normalize_and_authorize_path(inside_path)
+
+      assert normalized == Path.expand(inside_path)
+    end
+
+    test "rejects path outside allowed roots" do
+      assert {:error, :outside_allowed_roots} =
+               AgentPaths.normalize_and_authorize_path(
+                 "/tmp/path_guard_outside_test.txt"
+               )
+    end
+  end
+
+  describe "normalize_and_authorize_under_root/2" do
+    test "authorizes path under specified root" do
+      root = AgentPaths.skills_root()
+      path = Path.join(root, "demo/SKILL.md")
+
+      assert {:ok, normalized} =
+               AgentPaths.normalize_and_authorize_under_root(path, root)
+
+      assert normalized == Path.expand(path)
+    end
+
+    test "rejects path outside specified root" do
+      root = AgentPaths.skills_root()
+      outside = Path.join(File.cwd!(), "README.md")
+
+      assert {:error, :outside_allowed_roots} =
+               AgentPaths.normalize_and_authorize_under_root(outside, root)
+    end
+  end
 end
