@@ -51,19 +51,20 @@ defmodule LightAgent.Core.SessionMemoryStore do
       )
       when is_binary(session_id) and is_list(history) do
     payload =
-      Map.put_new_lazy(payload, "updated_at", fn ->
+      payload
+      |> Map.put_new_lazy("updated_at", fn ->
         DateTime.utc_now()
         |> DateTime.truncate(:second)
         |> DateTime.to_iso8601()
       end)
+      |> normalize_for_persist()
+
+    file_path = AgentPaths.session_memory_file_path(session_id)
 
     with :ok <- File.mkdir_p(AgentPaths.session_memory_root()),
          {:ok, json} <- Jason.encode(payload, pretty: true),
-         :ok <-
-           File.write(
-             AgentPaths.session_memory_file_path(session_id),
-             to_markdown(session_id, json)
-           ) do
+         markdown = to_markdown(session_id, json),
+         :ok <- write_if_changed(file_path, markdown, payload) do
       :ok
     end
   end
@@ -111,5 +112,38 @@ defmodule LightAgent.Core.SessionMemoryStore do
       _ ->
         {:error, :invalid_format}
     end
+  end
+
+  defp normalize_for_persist(payload) do
+    payload
+    |> Jason.encode!()
+    |> Jason.decode!()
+  end
+
+  defp write_if_changed(file_path, markdown, payload) do
+    case File.read(file_path) do
+      {:ok, existing_markdown} ->
+        case parse_markdown_payload(existing_markdown) do
+          {:ok, existing_payload} ->
+            if equivalent_payload_content?(existing_payload, payload) do
+              :ok
+            else
+              File.write(file_path, markdown)
+            end
+
+          _ ->
+            File.write(file_path, markdown)
+        end
+
+      {:error, :enoent} ->
+        File.write(file_path, markdown)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp equivalent_payload_content?(left, right) do
+    Map.drop(left, ["updated_at"]) == Map.drop(right, ["updated_at"])
   end
 end

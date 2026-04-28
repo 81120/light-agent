@@ -15,7 +15,6 @@ defmodule LightAgent.CLI.StatusFormatter do
 
   def normalize_content(content) when is_binary(content) do
     content
-    |> String.replace("\n", "\\n")
   end
 
   def normalize_content(content), do: inspect(content)

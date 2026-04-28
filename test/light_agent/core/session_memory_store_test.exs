@@ -112,6 +112,56 @@ defmodule LightAgent.Core.SessionMemoryStoreTest do
       assert loaded["updated_at"]
     end
 
+    test "skips rewrite when only updated_at changes" do
+      session_id = "test-stable-write-123"
+      file_path = AgentPaths.session_memory_file_path(session_id)
+
+      payload_v1 = %{
+        "session_id" => session_id,
+        "updated_at" => "2026-01-01T00:00:00Z",
+        "history" => [%{role: "assistant", content: "hello"}]
+      }
+
+      payload_v2 = %{
+        "session_id" => session_id,
+        "updated_at" => "2026-02-01T00:00:00Z",
+        "history" => [%{role: "assistant", content: "hello"}]
+      }
+
+      :ok = SessionMemoryStore.persist_session_payload(payload_v1)
+      {:ok, first_write} = File.read(file_path)
+
+      :ok = SessionMemoryStore.persist_session_payload(payload_v2)
+      {:ok, second_write} = File.read(file_path)
+
+      assert first_write == second_write
+    end
+
+    test "rewrites file when payload content changes" do
+      session_id = "test-rewrite-when-changed-123"
+      file_path = AgentPaths.session_memory_file_path(session_id)
+
+      payload_v1 = %{
+        "session_id" => session_id,
+        "updated_at" => "2026-01-01T00:00:00Z",
+        "history" => [%{role: "assistant", content: "hello"}]
+      }
+
+      payload_v2 = %{
+        "session_id" => session_id,
+        "updated_at" => "2026-02-01T00:00:00Z",
+        "history" => [%{role: "assistant", content: "hello world"}]
+      }
+
+      :ok = SessionMemoryStore.persist_session_payload(payload_v1)
+      {:ok, first_write} = File.read(file_path)
+
+      :ok = SessionMemoryStore.persist_session_payload(payload_v2)
+      {:ok, second_write} = File.read(file_path)
+
+      refute first_write == second_write
+    end
+
     test "returns error for invalid payload" do
       assert {:error, :invalid_payload} =
                SessionMemoryStore.persist_session_payload(%{})

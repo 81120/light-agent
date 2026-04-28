@@ -563,24 +563,54 @@ defmodule Mix.Tasks.LightAgent.Chat do
         format_tool_args_json(tool_args_map, to_string(name), idx)
 
       detail =
-        [
-          "tool##{idx}",
-          to_string(name),
-          "args=#{args_json}",
-          format_tool_content(content)
-        ]
-        |> Enum.join(" ")
+        render_tool_result_block(args_json, content)
 
-      emit_status(:success, "", detail)
+      emit_status(:success, "tool##{idx} #{to_string(name)}", "\n" <> detail)
     end)
   end
 
+  defp render_tool_result_block(args_json, content) do
+    [
+      "  args:",
+      indent_block(format_tool_args_content(args_json), 4),
+      "  output:",
+      indent_block(format_tool_content(content), 4)
+    ]
+    |> Enum.join("\n")
+  end
+
+  defp format_tool_args_content(args_json) when is_binary(args_json) do
+    case Jason.decode(args_json) do
+      {:ok, decoded} -> Jason.encode!(decoded, pretty: true)
+      _ -> args_json
+    end
+  end
+
+  defp format_tool_args_content(args), do: inspect(args)
+
   defp format_tool_content(content) when is_binary(content) do
-    content
-    |> StatusFormatter.normalize_content()
+    normalized = StatusFormatter.normalize_content(content)
+
+    case Jason.decode(normalized) do
+      {:ok, decoded} -> Jason.encode!(decoded, pretty: true)
+      _ -> normalized
+    end
   end
 
   defp format_tool_content(content), do: inspect(content)
+
+  defp indent_block(content, indent_size) do
+    indent = String.duplicate(" ", indent_size)
+
+    content
+    |> to_string()
+    |> empty_fallback()
+    |> String.split("\n", trim: false)
+    |> Enum.map_join("\n", fn line -> indent <> line end)
+  end
+
+  defp empty_fallback(""), do: "(empty)"
+  defp empty_fallback(content), do: content
 
   defp display_token(nil), do: "n/a"
   defp display_token(value), do: to_string(value)
