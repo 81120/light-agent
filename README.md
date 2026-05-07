@@ -61,7 +61,22 @@ This root contains:
 
 ## Quick Start
 
-Start interactive CLI:
+1. Install dependencies:
+
+```bash
+mix deps.get
+```
+
+2. Create a `.env` file in the project root and put the key config in it:
+
+```bash
+API_KEY=your-api-key
+BASE_URL=https://api.openai.com/v1/chat/completions
+MODEL=gpt-4.1
+API_FORMAT=chat_completions
+```
+
+3. Start interactive CLI:
 
 ```bash
 mix light_agent.chat
