@@ -10,7 +10,11 @@
   <div class="dashboard-shell">
     <aside class="dashboard-pane left-pane">
       <div class="pane-inner">
-        <a href="/dashboard" phx-click="clear_selection" class={"list-card global-card " <> if(is_nil(@selected_session_id), do: "active", else: "") }>
+        <button
+          type="button"
+          phx-click="clear_selection"
+          class={"list-card global-card " <> if(is_nil(@selected_session_id), do: "active", else: "") }
+        >
           <div class="list-card-head">
             <h2>Global</h2>
             <span class="pill"><%= length(@global_context.context_files) %> files</span>
@@ -18,15 +22,15 @@
           <p class="list-card-meta">
             loaded=<%= Enum.count(@global_context.context_files, & &1.loaded) %> / <%= length(@global_context.context_files) %>
           </p>
-        </a>
+        </button>
 
         <section class="list-section">
           <h3 class="list-section-title">Sessions</h3>
           <p class="list-section-meta">共 <%= length(@sessions) %> 个</p>
           <ul class="card-list">
             <li :for={session <- @sessions}>
-              <a
-                href={"/dashboard?session_id=" <> session.id}
+              <button
+                type="button"
                 phx-click="select_session"
                 phx-value-id={session.id}
                 class={"list-card session-card " <> if(@selected_session_id == session.id, do: "active", else: "")}
@@ -38,7 +42,7 @@
                 <div class="session-subline">status=<%= session.status %></div>
                 <div class="session-subline">history=<%= session.history_count %></div>
                 <div :if={session.updated_at} class="session-subline">updated_at=<%= session.updated_at %></div>
-              </a>
+              </button>
             </li>
           </ul>
         </section>

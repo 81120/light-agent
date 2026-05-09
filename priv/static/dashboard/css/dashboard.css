@@ -156,6 +156,10 @@ body {
 
 .list-card {
   display: block;
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  font: inherit;
   text-decoration: none;
   color: inherit;
   border: 1px solid rgba(255, 255, 255, 0.45);
@@ -164,6 +168,7 @@ body {
   background: rgba(255, 255, 255, 0.95);
   box-shadow: var(--shadow-soft);
   transition: all 0.16s ease;
+  cursor: pointer;
 }
 
 .list-card:hover {

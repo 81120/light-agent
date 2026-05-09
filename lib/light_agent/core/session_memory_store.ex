@@ -1,5 +1,6 @@
 defmodule LightAgent.Core.SessionMemoryStore do
   alias LightAgent.Core.AgentPaths
+  alias LightAgent.Core.Worker.Usage
 
   @json_block_regex ~r/```json\n([\s\S]*?)\n```/
 
@@ -12,9 +13,16 @@ defmodule LightAgent.Core.SessionMemoryStore do
   end
 
   def load_session(session_id) do
+    case load_session_data(session_id) do
+      {:ok, %{"history" => history}} -> {:ok, history}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def load_session_data(session_id) do
     case load_session_payload(session_id) do
-      {:ok, %{"history" => history}} when is_list(history) ->
-        {:ok, history}
+      {:ok, %{"history" => history} = payload} when is_list(history) ->
+        {:ok, normalize_loaded_payload(payload)}
 
       {:ok, _payload} ->
         {:error, :invalid_format}
@@ -34,13 +42,19 @@ defmodule LightAgent.Core.SessionMemoryStore do
   end
 
   def persist_session(session_id, history) when is_list(history) do
+    persist_session(session_id, history, Usage.default_token_usage_total())
+  end
+
+  def persist_session(session_id, history, token_usage_total)
+      when is_list(history) and is_map(token_usage_total) do
     payload = %{
       "session_id" => session_id,
       "updated_at" =>
         DateTime.utc_now()
         |> DateTime.truncate(:second)
         |> DateTime.to_iso8601(),
-      "history" => history
+      "history" => history,
+      "token_usage_total" => token_usage_total
     }
 
     persist_session_payload(payload)
@@ -57,6 +71,7 @@ defmodule LightAgent.Core.SessionMemoryStore do
         |> DateTime.truncate(:second)
         |> DateTime.to_iso8601()
       end)
+      |> Map.put_new("token_usage_total", Usage.default_token_usage_total())
       |> normalize_for_persist()
 
     file_path = AgentPaths.session_memory_file_path(session_id)
@@ -118,6 +133,62 @@ defmodule LightAgent.Core.SessionMemoryStore do
     payload
     |> Jason.encode!()
     |> Jason.decode!()
+  end
+
+  defp normalize_loaded_payload(payload) do
+    token_usage_total =
+      payload
+      |> Map.get("token_usage_total")
+      |> normalize_token_usage_total()
+
+    Map.put(payload, "token_usage_total", token_usage_total)
+  end
+
+  defp normalize_token_usage_total(raw) when is_map(raw) do
+    default = Usage.default_token_usage_total()
+
+    %{
+      prompt_tokens:
+        normalize_usage_counter(raw, :prompt_tokens, default.prompt_tokens),
+      completion_tokens:
+        normalize_usage_counter(
+          raw,
+          :completion_tokens,
+          default.completion_tokens
+        ),
+      total_tokens:
+        normalize_usage_counter(raw, :total_tokens, default.total_tokens),
+      steps: normalize_usage_counter(raw, :steps, default.steps),
+      missing_usage_steps:
+        normalize_usage_counter(
+          raw,
+          :missing_usage_steps,
+          default.missing_usage_steps
+        )
+    }
+  end
+
+  defp normalize_token_usage_total(_), do: Usage.default_token_usage_total()
+
+  defp normalize_usage_counter(raw, key, default) do
+    value = Map.get(raw, key) || Map.get(raw, Atom.to_string(key))
+
+    case value do
+      n when is_integer(n) ->
+        n
+
+      n when is_float(n) ->
+        trunc(n)
+
+      n when is_binary(n) ->
+        case Integer.parse(n) do
+          {parsed, ""} -> parsed
+          _ -> default
+        end
+
+      _ ->
+        default
+    end
   end
 
   defp write_if_changed(file_path, markdown, payload) do

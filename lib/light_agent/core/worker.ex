@@ -397,13 +397,15 @@ defmodule LightAgent.Core.Worker do
     {:reply, reply, state}
   end
 
-  defp start_session_server(session_id, history \\ nil) do
+  defp start_session_server(
+         session_id,
+         history \\ nil,
+         token_usage_total \\ nil
+       ) do
     opts =
-      if is_list(history) do
-        [session_id: session_id, history: history]
-      else
-        [session_id: session_id]
-      end
+      [session_id: session_id]
+      |> maybe_put_history(history)
+      |> maybe_put_token_usage_total(token_usage_total)
 
     child_spec = {SessionServer, opts}
 
@@ -452,9 +454,11 @@ defmodule LightAgent.Core.Worker do
     restored =
       SessionMemoryStore.list_session_ids()
       |> Enum.reduce(%{}, fn session_id, acc ->
-        case SessionMemoryStore.load_session(session_id) do
-          {:ok, history} when is_list(history) ->
-            case start_session_server(session_id, history) do
+        case SessionMemoryStore.load_session_data(session_id) do
+          {:ok,
+           %{"history" => history, "token_usage_total" => token_usage_total}}
+          when is_list(history) and is_map(token_usage_total) ->
+            case start_session_server(session_id, history, token_usage_total) do
               :ok -> Map.put(acc, session_id, %{status: :active})
               {:error, _} -> acc
             end
@@ -489,6 +493,17 @@ defmodule LightAgent.Core.Worker do
       end
     end
   end
+
+  defp maybe_put_history(opts, history) when is_list(history),
+    do: Keyword.put(opts, :history, history)
+
+  defp maybe_put_history(opts, _), do: opts
+
+  defp maybe_put_token_usage_total(opts, token_usage_total)
+       when is_map(token_usage_total),
+       do: Keyword.put(opts, :token_usage_total, token_usage_total)
+
+  defp maybe_put_token_usage_total(opts, _), do: opts
 
   defp new_session_id do
     Ecto.UUID.generate()

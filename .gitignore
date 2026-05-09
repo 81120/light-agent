@@ -2,3 +2,4 @@ _build/
 deps/
 .env
 .ttadk/
+.tmp_light_agent_tests/

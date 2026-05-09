@@ -3,6 +3,7 @@ defmodule LightAgent.Core.SessionMemoryStoreTest do
 
   alias LightAgent.Core.SessionMemoryStore
   alias LightAgent.Core.AgentPaths
+  alias LightAgent.Core.SessionServer
 
   setup do
     tmp_dir =
@@ -45,7 +46,7 @@ defmodule LightAgent.Core.SessionMemoryStoreTest do
     end
   end
 
-  describe "persist_session/2 and load_session/1" do
+  describe "persist_session and load_session/1" do
     test "persists and loads session history" do
       session_id = "test-session-456"
 
@@ -63,12 +64,36 @@ defmodule LightAgent.Core.SessionMemoryStoreTest do
       assert hd(loaded_history)["role"] == "system"
     end
 
+    test "persists explicit token usage total" do
+      session_id = "test-session-token-usage-1"
+      history = [%{"role" => "user", "content" => "hello"}]
+
+      token_usage_total = %{
+        "prompt_tokens" => 11,
+        "completion_tokens" => 7,
+        "total_tokens" => 18,
+        "steps" => 2,
+        "missing_usage_steps" => 1
+      }
+
+      :ok =
+        SessionMemoryStore.persist_session(
+          session_id,
+          history,
+          token_usage_total
+        )
+
+      {:ok, payload} = SessionMemoryStore.load_session_payload(session_id)
+
+      assert payload["token_usage_total"] == token_usage_total
+    end
+
     test "returns error for non-existent session" do
       assert {:error, :enoent} = SessionMemoryStore.load_session("non-existent")
     end
   end
 
-  describe "load_session_payload/1" do
+  describe "load_session_payload/1 and load_session_data/1" do
     test "loads full session payload" do
       session_id = "test-session-789"
       history = [%{role: "user", content: "test"}]
@@ -80,6 +105,31 @@ defmodule LightAgent.Core.SessionMemoryStoreTest do
       assert payload["session_id"] == session_id
       assert is_list(payload["history"])
       assert payload["updated_at"]
+      assert is_map(payload["token_usage_total"])
+    end
+
+    test "load_session_data fills default token usage total for old payload" do
+      session_id = "legacy-session-usage-1"
+
+      legacy_payload = %{
+        "session_id" => session_id,
+        "updated_at" => "2026-01-01T00:00:00Z",
+        "history" => [%{"role" => "user", "content" => "hello"}]
+      }
+
+      :ok = SessionMemoryStore.persist_session_payload(legacy_payload)
+
+      {:ok, payload} = SessionMemoryStore.load_session_data(session_id)
+
+      assert payload["history"] == legacy_payload["history"]
+
+      assert payload["token_usage_total"] == %{
+               prompt_tokens: 0,
+               completion_tokens: 0,
+               total_tokens: 0,
+               steps: 0,
+               missing_usage_steps: 0
+             }
     end
   end
 
@@ -200,6 +250,56 @@ defmodule LightAgent.Core.SessionMemoryStoreTest do
       assert String.starts_with?(content, "# Session ")
       assert String.contains?(content, "```json")
       assert String.contains?(content, "```")
+    end
+  end
+
+  describe "session restore with persisted token usage" do
+    test "starts SessionServer with persisted token usage total" do
+      session_id = "restore-token-usage-#{System.unique_integer([:positive])}"
+
+      history = [
+        %{"role" => "system", "content" => "You are a helpful assistant"},
+        %{"role" => "user", "content" => "hello"}
+      ]
+
+      token_usage_total = %{
+        "prompt_tokens" => 101,
+        "completion_tokens" => 23,
+        "total_tokens" => 124,
+        "steps" => 3,
+        "missing_usage_steps" => 1
+      }
+
+      :ok =
+        SessionMemoryStore.persist_session(
+          session_id,
+          history,
+          token_usage_total
+        )
+
+      {:ok, data} = SessionMemoryStore.load_session_data(session_id)
+
+      {:ok, pid} =
+        SessionServer.start_link(
+          session_id: session_id,
+          history: data["history"],
+          token_usage_total: data["token_usage_total"]
+        )
+
+      try do
+        assert GenServer.call(
+                 SessionServer.via_tuple(session_id),
+                 :current_token_usage
+               ) == %{
+                 prompt_tokens: 101,
+                 completion_tokens: 23,
+                 total_tokens: 124,
+                 steps: 3,
+                 missing_usage_steps: 1
+               }
+      after
+        GenServer.stop(pid)
+      end
     end
   end
 end

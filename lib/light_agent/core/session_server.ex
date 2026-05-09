@@ -22,13 +22,16 @@ defmodule LightAgent.Core.SessionServer do
     history =
       Keyword.get(opts, :history, Session.new_session_data().history)
 
+    token_usage_total =
+      Keyword.get(opts, :token_usage_total, Usage.default_token_usage_total())
+
     state = %{
       id: session_id,
       status: :active,
       mode: :normal,
       plan_state: default_plan_state(),
       history: history,
-      token_usage_total: Usage.default_token_usage_total(),
+      token_usage_total: token_usage_total,
       tool_retry_count: 0
     }
 
@@ -328,7 +331,13 @@ defmodule LightAgent.Core.SessionServer do
   end
 
   defp persist_history(state) do
-    _ = SessionMemoryStore.persist_session(state.id, state.history)
+    _ =
+      SessionMemoryStore.persist_session(
+        state.id,
+        state.history,
+        state.token_usage_total
+      )
+
     state
   end
 

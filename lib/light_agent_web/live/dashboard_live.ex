@@ -42,7 +42,13 @@ defmodule LightAgentWeb.DashboardLive do
 
   @impl true
   def handle_event("select_session", %{"id" => session_id}, socket) do
-    {:noreply, push_patch(socket, to: ~p"/dashboard?session_id=#{session_id}")}
+    socket =
+      socket
+      |> maybe_resubscribe_session(session_id)
+      |> assign(:selected_session_id, session_id)
+      |> load_session_data()
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -52,7 +58,13 @@ defmodule LightAgentWeb.DashboardLive do
 
   @impl true
   def handle_event("clear_selection", _params, socket) do
-    {:noreply, push_patch(socket, to: ~p"/dashboard")}
+    socket =
+      socket
+      |> maybe_resubscribe_session(nil)
+      |> assign(:selected_session_id, nil)
+      |> load_session_data()
+
+    {:noreply, socket}
   end
 
   @impl true
