@@ -135,6 +135,26 @@ defmodule LightAgent.Core.SessionServer do
   end
 
   @impl true
+  def handle_call(:dashboard_detail, _from, state) do
+    detail = %{
+      id: state.id,
+      status: state.status,
+      mode: state.mode,
+      plan_status: Map.get(state.plan_state, "status", "idle"),
+      plan: state.plan_state,
+      token_usage_total: state.token_usage_total,
+      history_count: length(state.history)
+    }
+
+    {:reply, detail, state}
+  end
+
+  @impl true
+  def handle_call(:dashboard_history, _from, state) do
+    {:reply, state.history, state}
+  end
+
+  @impl true
   def handle_call({:run_agent_step, user_input}, _from, state) do
     {reply, state} = run_agent_step_internal(user_input, state)
     {:reply, reply, state}

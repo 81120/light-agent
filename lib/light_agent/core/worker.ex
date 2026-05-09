@@ -7,6 +7,7 @@ defmodule LightAgent.Core.Worker do
   alias LightAgent.Core.SessionSupervisor
   alias LightAgent.Core.Worker.Session
   alias LightAgent.Core.Worker.Usage
+  alias LightAgent.Dashboard.Events
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -87,6 +88,14 @@ defmodule LightAgent.Core.Worker do
     GenServer.call(__MODULE__, :plan_progress)
   end
 
+  def session_detail(session_id) when is_binary(session_id) do
+    GenServer.call(__MODULE__, {:session_detail, session_id})
+  end
+
+  def session_history(session_id) when is_binary(session_id) do
+    GenServer.call(__MODULE__, {:session_history, session_id})
+  end
+
   @impl true
   def init(_opts) do
     case restore_or_boot_sessions() do
@@ -105,6 +114,9 @@ defmodule LightAgent.Core.Worker do
           state
           |> put_in([:sessions, session_id], %{status: :active})
           |> Map.put(:current_session_id, session_id)
+
+        Events.broadcast_sessions_changed(:created, %{session_id: session_id})
+        Events.broadcast_session_updated(session_id, :created)
 
         {:reply, {:ok, session_id}, state}
 
@@ -138,6 +150,9 @@ defmodule LightAgent.Core.Worker do
         state =
           put_in(state, [:sessions, session_id, :status], :paused)
 
+        Events.broadcast_sessions_changed(:paused, %{session_id: session_id})
+        Events.broadcast_session_updated(session_id, :paused)
+
         {:reply, {:ok, session_id}, state}
 
       {:error, :session_not_found} ->
@@ -149,7 +164,10 @@ defmodule LightAgent.Core.Worker do
   def handle_call({:switch_session, session_id}, _from, state) do
     if Map.has_key?(state.sessions, session_id) and
          session_alive?(session_id) do
-      {:reply, :ok, %{state | current_session_id: session_id}}
+      state = %{state | current_session_id: session_id}
+      Events.broadcast_sessions_changed(:switched, %{session_id: session_id})
+      Events.broadcast_session_updated(session_id, :switched)
+      {:reply, :ok, state}
     else
       {:reply, {:error, :session_not_found}, state}
     end
@@ -162,6 +180,9 @@ defmodule LightAgent.Core.Worker do
         {:ok, :ok} ->
           state =
             put_in(state, [:sessions, session_id, :status], :active)
+
+          Events.broadcast_sessions_changed(:resumed, %{session_id: session_id})
+          Events.broadcast_session_updated(session_id, :resumed)
 
           {:reply, :ok, state}
 
@@ -200,6 +221,9 @@ defmodule LightAgent.Core.Worker do
           else
             state
           end
+
+        Events.broadcast_sessions_changed(:deleted, %{session_id: session_id})
+        Events.broadcast_session_updated(session_id, :deleted)
 
         {:reply, {:ok, state.current_session_id}, state}
     end
@@ -314,6 +338,36 @@ defmodule LightAgent.Core.Worker do
   end
 
   @impl true
+  def handle_call({:session_detail, session_id}, _from, state) do
+    reply =
+      if Map.has_key?(state.sessions, session_id) do
+        case call_session(session_id, :dashboard_detail) do
+          {:ok, detail} -> {:ok, detail}
+          {:error, :session_not_found} -> {:error, :session_not_found}
+        end
+      else
+        {:error, :session_not_found}
+      end
+
+    {:reply, reply, state}
+  end
+
+  @impl true
+  def handle_call({:session_history, session_id}, _from, state) do
+    reply =
+      if Map.has_key?(state.sessions, session_id) do
+        case call_session(session_id, :dashboard_history) do
+          {:ok, history} -> {:ok, history}
+          {:error, :session_not_found} -> {:error, :session_not_found}
+        end
+      else
+        {:error, :session_not_found}
+      end
+
+    {:reply, reply, state}
+  end
+
+  @impl true
   def handle_call({:run_agent_step, user_input}, _from, state) do
     reply =
       case call_session(
@@ -333,6 +387,12 @@ defmodule LightAgent.Core.Worker do
 
           {:done, "当前 session 不存在，请先 /new 后再继续。", step_usage}
       end
+
+    Events.broadcast_session_updated(state.current_session_id, :history_updated)
+
+    Events.broadcast_sessions_changed(:updated, %{
+      session_id: state.current_session_id
+    })
 
     {:reply, reply, state}
   end

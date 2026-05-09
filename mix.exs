@@ -27,7 +27,14 @@ defmodule LightAgent.MixProject do
       {:env_loader, "~> 0.1.0", only: [:dev, :test]},
       {:ecto, "~> 3.12"},
       {:quantum, "~> 3.5"},
-      {:prompt, "~> 0.10.1"}
+      {:prompt, "~> 0.10.1"},
+      {:phoenix, "~> 1.7.14"},
+      {:phoenix_html, "~> 4.1"},
+      {:phoenix_live_view, "~> 1.0"},
+      {:phoenix_live_reload, "~> 1.5", only: :dev},
+      {:plug_cowboy, "~> 2.7"},
+      {:telemetry_metrics, "~> 1.0"},
+      {:telemetry_poller, "~> 1.0"}
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
     ]
   end

@@ -1,0 +1,128 @@
+<div class="dashboard-root">
+  <header>
+    <h1 class="dashboard-title">LightAgent Dashboard</h1>
+  </header>
+
+  <div :if={@error} class="dashboard-alert">
+    <%= @error %>
+  </div>
+
+  <div class="dashboard-shell">
+    <aside class="dashboard-pane left-pane">
+      <div class="pane-inner">
+        <a href="/dashboard" phx-click="clear_selection" class={"list-card global-card " <> if(is_nil(@selected_session_id), do: "active", else: "") }>
+          <div class="list-card-head">
+            <h2>Global</h2>
+            <span class="pill"><%= length(@global_context.context_files) %> files</span>
+          </div>
+          <p class="list-card-meta">
+            loaded=<%= Enum.count(@global_context.context_files, & &1.loaded) %> / <%= length(@global_context.context_files) %>
+          </p>
+        </a>
+
+        <section class="list-section">
+          <h3 class="list-section-title">Sessions</h3>
+          <p class="list-section-meta">共 <%= length(@sessions) %> 个</p>
+          <ul class="card-list">
+            <li :for={session <- @sessions}>
+              <a
+                href={"/dashboard?session_id=" <> session.id}
+                phx-click="select_session"
+                phx-value-id={session.id}
+                class={"list-card session-card " <> if(@selected_session_id == session.id, do: "active", else: "")}
+              >
+                <div class="list-card-head">
+                  <strong class="session-id"><%= session.id %></strong>
+                  <span :if={session.current} class="pill pill-current">current</span>
+                </div>
+                <div class="session-subline">status=<%= session.status %></div>
+                <div class="session-subline">history=<%= session.history_count %></div>
+                <div :if={session.updated_at} class="session-subline">updated_at=<%= session.updated_at %></div>
+              </a>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </aside>
+
+    <section class="dashboard-pane right-pane">
+      <div class="pane-inner">
+        <section :if={is_nil(@selected_session_id)} class="card detail-card">
+          <h2 class="card-title">Global Detail</h2>
+          <ul class="context-list">
+            <li :for={ctx <- @global_context.context_files} class="context-item">
+              <div class="context-header">
+                <strong><%= ctx.name %></strong>
+                <span class="context-status">(<%= if ctx.loaded, do: "loaded", else: "empty/missing" %>)</span>
+              </div>
+              <div class="context-path"><%= ctx.path %></div>
+              <pre :if={ctx.content} class="pre-block"><%= ctx.content %></pre>
+            </li>
+          </ul>
+
+          <h3 class="sub-title">Skills</h3>
+          <ul class="meta-list">
+            <li :for={skill <- @global_context.skills} class="meta-item">
+              <div class="meta-name"><%= skill.name %></div>
+              <div class="meta-desc"><%= skill.description %></div>
+            </li>
+          </ul>
+
+          <h3 class="sub-title">Tools</h3>
+          <ul class="meta-list">
+            <li :for={tool <- @global_context.tools} class="meta-item">
+              <div class="meta-name"><%= tool.name %></div>
+              <div class="meta-desc"><%= tool.description %></div>
+            </li>
+          </ul>
+
+          <h3 class="sub-title">Dynamic Skills Context</h3>
+          <pre class="pre-block"><%= @global_context.dynamic_skills_context %></pre>
+        </section>
+
+        <div :if={!is_nil(@selected_session_id)} class="detail-stack">
+          <section class="card detail-card">
+            <h2 class="card-title">Session Detail</h2>
+
+            <div :if={@session_detail == nil} class="empty">session 不存在或已被删除。</div>
+
+            <div :if={@session_detail != nil}>
+              <dl class="kv">
+                <dt>id</dt>
+                <dd><%= @session_detail.id %></dd>
+                <dt>status</dt>
+                <dd><%= @session_detail.status %></dd>
+                <dt>mode</dt>
+                <dd><%= @session_detail.mode %></dd>
+                <dt>plan_status</dt>
+                <dd><%= @session_detail.plan_status %></dd>
+                <dt>history_count</dt>
+                <dd><%= @session_detail.history_count %></dd>
+                <dt :if={@session_detail.updated_at}>updated_at</dt>
+                <dd :if={@session_detail.updated_at}><%= @session_detail.updated_at %></dd>
+              </dl>
+
+              <h3 class="sub-title">Token Usage</h3>
+              <pre class="pre-block"><%= inspect(@session_detail.token_usage_total, pretty: true) %></pre>
+            </div>
+          </section>
+
+          <section class="card detail-card">
+            <h2 class="card-title">Session History</h2>
+            <div :if={@session_history == []} class="empty">无 history 数据。</div>
+            <% history_count = length(@session_history) %>
+            <ol class="history-list">
+              <li :for={{msg, idx} <- Enum.with_index(@session_history)} class="history-item">
+                <span class="history-index"><%= history_count - idx %>.</span>
+                <div class="history-main">
+                  <span class="role-badge"><%= Map.get(msg, :role) || Map.get(msg, "role") %></span>
+                  <pre class="pre-block"><%= Map.get(msg, :content) || Map.get(msg, "content") || inspect(msg, pretty: true) %></pre>
+                </div>
+              </li>
+            </ol>
+          </section>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>

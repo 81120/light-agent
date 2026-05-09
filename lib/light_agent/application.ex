@@ -11,8 +11,11 @@ defmodule LightAgent.Application do
       # Starts a worker by calling: LightAgent.Core.Worker.start_link(arg)
       {Registry, keys: :unique, name: LightAgent.Core.SessionRegistry},
       {LightAgent.Core.SessionSupervisor, []},
+      {Phoenix.PubSub, name: LightAgent.PubSub},
       {LightAgent.Core.Worker, args},
-      {LightAgent.Core.Scheduler, []}
+      {LightAgent.Core.Scheduler, []},
+      {LightAgentWeb.Telemetry, []},
+      LightAgentWeb.Endpoint
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

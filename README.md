@@ -13,6 +13,8 @@ It provides a CLI-first workflow with multi-session state, tool calling, plan mo
 - Tool calling with schema validation (Ecto)
 - Plan mode lifecycle (`drafting -> ready -> applying -> completed`)
 - Runtime-loadable FS skills via `agent/skills/*/SKILL.md`
+- Phoenix LiveView Dashboard for sessions/global context observability
+- Realtime dashboard updates via PubSub + poll fallback
 - Token usage tracking per step and per session
 - Interactive confirmation for sensitive tools
 
@@ -102,6 +104,27 @@ Special input:
 
 - `//xxx` sends literal `/xxx` as plain user text.
 
+## Dashboard (Phoenix LiveView)
+
+Start web dashboard:
+
+```bash
+mix run --no-halt
+```
+
+Access URLs:
+
+- `http://127.0.0.1:4000/`
+- `http://127.0.0.1:4000/dashboard`
+
+Current dashboard capabilities:
+
+- Session list (left pane)
+- Global card + Global detail (effective context files, skills, tools)
+- Session detail and token usage
+- Session history (reverse chronological order)
+- Realtime refresh via PubSub + poll fallback
+
 ## Core Architecture
 
 ### Supervision tree
@@ -110,18 +133,49 @@ Special input:
 
 - `LightAgent.Core.SessionRegistry` (Registry)
 - `LightAgent.Core.SessionSupervisor` (DynamicSupervisor)
-- `LightAgent.Core.Worker` (top-level coordinator)
-- `LightAgent.Core.Scheduler` (Quantum jobs)
+- `Phoenix.PubSub` (`LightAgent.PubSub`)
+- `LightAgent.Core.Worker` (session coordinator)
+- `LightAgent.Core.Scheduler` (Quantum compaction jobs)
+- `LightAgentWeb.Telemetry`
+- `LightAgentWeb.Endpoint`
 
-### Request/response flow
+### Architecture diagram
 
-1. CLI sends input to `LightAgent.Core.Worker`
-2. Worker forwards execution to current `LightAgent.Core.SessionServer`
-3. Session server calls `LightAgent.Core.LLM.call/3`
-4. LLM request payload is mapped by `LightAgent.Core.LLM.RequestMapper`
-5. Assistant response is normalized by `LightAgent.Core.LLM.AssistantMessageNormalizer`
-6. Tool calls are executed by `LightAgent.Core.Skill.Runner`
-7. History and usage are persisted back to session state/files
+```mermaid
+graph TD
+  CLI[CLI / mix light_agent.chat] --> Worker[LightAgent.Core.Worker]
+  Web[Web /dashboard LiveView] --> DashboardLive[LightAgentWeb.DashboardLive]
+  DashboardLive --> DashboardModel[LightAgent.Dashboard]
+  DashboardLive <-->|PubSub events| Events[LightAgent.Dashboard.Events]
+
+  Worker --> SessionServer[LightAgent.Core.SessionServer]
+  SessionServer --> LLM[LightAgent.Core.LLM]
+  LLM --> Provider[LLM Provider API]
+
+  SessionServer --> SkillRunner[LightAgent.Core.Skill.Runner]
+  SkillRunner --> CodeSkills[Code-based Skills]
+  SkillRunner --> FsSkills[FS-based Skills]
+
+  Worker --> SessionStore[SessionMemoryStore]
+  SessionServer --> SessionStore
+  SessionStore --> SessionFiles[agent/session_memory/*.md]
+
+  DashboardModel --> SessionStore
+  DashboardModel --> AgentConfig[agent/config/*.md]
+  DashboardModel --> SkillRunner
+
+  Worker --> Events
+  Events --> PubSub[LightAgent.PubSub]
+  PubSub --> DashboardLive
+```
+
+### Runtime flow
+
+1. CLI input is handled by `LightAgent.Core.Worker` and routed to the current `SessionServer`.
+2. `SessionServer` calls `LightAgent.Core.LLM.call/3`, normalizes assistant output, executes tool calls, and persists history.
+3. Worker broadcasts session/global updates through `LightAgent.Dashboard.Events` + PubSub.
+4. LiveView (`/dashboard`) subscribes to events and refreshes UI state; polling provides fallback consistency.
+5. `LightAgent.Dashboard` aggregates read models for session detail/history plus global context, skills, and tools.
 
 ## LLM API Compatibility
 
@@ -235,45 +289,6 @@ Run key suites:
 mix test test/light_agent/core/llm/request_mapper_test.exs
 mix test test/light_agent/core/llm/assistant_message_normalizer_test.exs
 mix test test/light_agent_test.exs
-```
-
-## Project Structure
-
-```text
-lib/light_agent/
-├── application.ex
-├── cli/
-│   ├── command_router.ex
-│   ├── input_reader.ex
-│   ├── prompts.ex
-│   └── status_formatter.ex
-├── core/
-│   ├── LLM.ex
-│   ├── agent_paths.ex
-│   ├── scheduler.ex
-│   ├── session_memory_compactor.ex
-│   ├── session_memory_store.ex
-│   ├── session_server.ex
-│   ├── session_supervisor.ex
-│   ├── worker.ex
-│   ├── llm/
-│   │   ├── assistant_message_normalizer.ex
-│   │   └── request_mapper.ex
-│   ├── skill/
-│   │   ├── code_based_skill.ex
-│   │   ├── fs_based_skill.ex
-│   │   ├── runner.ex
-│   │   ├── schema_json_schema.ex
-│   │   └── tool_args_validator.ex
-│   └── worker/
-│       ├── session.ex
-│       └── usage.ex
-└── skills/
-    ├── filesystem.ex
-    ├── load_fs_skill.ex
-    ├── location.ex
-    ├── run_command.ex
-    └── weather.ex
 ```
 
 ## License
