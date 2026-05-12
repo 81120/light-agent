@@ -51,7 +51,7 @@ defmodule LightAgent.Core.LLM do
       {:error, reason} ->
         if attempt < max_attempts do
           Logger.warning(
-            "LLM 调用失败，开始第 #{attempt + 1} 次重试，原因: #{inspect(reason)}"
+            "LLM call failed; starting retry ##{attempt + 1}. Reason: #{inspect(reason)}"
           )
 
           Process.sleep(retry_delay_ms)
@@ -64,9 +64,9 @@ defmodule LightAgent.Core.LLM do
             attempt + 1
           )
         else
-          Logger.error("LLM 调用失败，达到最大重试次数，原因: #{inspect(reason)}")
+          Logger.error("LLM call failed after max retries. Reason: #{inspect(reason)}")
 
-          {:error, :request_failed, "LLM 调用失败，请稍后重试。"}
+          {:error, :request_failed, "LLM call failed. Please try again later."}
         end
     end
   end

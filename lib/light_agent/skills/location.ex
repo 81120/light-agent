@@ -1,5 +1,5 @@
 defmodule LightAgent.Skills.Location do
-  @moduledoc "提供位置查询能力的技能包"
+  @moduledoc "Skill package for location lookup."
 
   use LightAgent.Core.Skill.CodeBasedSkill
 
@@ -21,7 +21,7 @@ defmodule LightAgent.Skills.Location do
     def required_fields, do: [:city]
   end
 
-  @doc "获取指定城市的经纬度"
+  @doc "Get latitude and longitude for a city."
   deftool(:get_location, schema: GetLocationParams)
 
   @impl true
@@ -36,10 +36,10 @@ defmodule LightAgent.Skills.Location do
         latitude = data["latitude"]
         longitude = data["longitude"]
 
-        "#{city} 的经纬度是 #{Jason.encode!(%{"latitude" => latitude, "longitude" => longitude})}。"
+        "The coordinates for #{city} are #{Jason.encode!(%{"latitude" => latitude, "longitude" => longitude})}."
 
       {:error, e} ->
-        "获取 #{city} 的经纬度失败: #{inspect(e)}"
+        "Failed to get coordinates for #{city}: #{inspect(e)}"
     end
   end
 end

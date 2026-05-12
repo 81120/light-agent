@@ -2,10 +2,10 @@ const crypto = require("crypto");
 
 function main() {
   if (process.argv.length !== 3) {
-    console.error("请提供一个姓名作为参数");
+    console.error("Please provide a name as an argument");
     process.exit(1);
   }
-  console.log(`${crypto.randomUUID()}，你好，${process.argv[2]}！见到你真高兴`);
+  console.log(`${crypto.randomUUID()}, hello, ${process.argv[2]}! Nice to meet you.`);
 }
 
 main();

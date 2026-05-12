@@ -69,7 +69,7 @@ defmodule LightAgent.Skills.FilesystemTest do
              "path" => path,
              "content" => "abc"
            }) ==
-             "成功写入文件 #{Path.expand(path)}"
+             "Successfully wrote file #{Path.expand(path)}"
 
     assert LightAgent.Skills.Filesystem.exec(:read_file, %{
              "path" => path
@@ -524,7 +524,7 @@ defmodule LightAgent.Core.LLMFormatTest do
         type: "function",
         function: %{
           name: :read_file,
-          description: "读取文件",
+          description: "Read file",
           parameters: %{
             "type" => "object",
             "properties" => %{"path" => %{"type" => "string"}}
@@ -735,7 +735,7 @@ defmodule LightAgent.Core.SessionServerResponsesFormatTest do
     )
 
     try do
-      assert {:done, "LLM 返回异常，请稍后重试。", _step_usage} =
+      assert {:done, "LLM returned an invalid response. Please try again later.", _step_usage} =
                GenServer.call(
                  SessionServer.via_tuple(session_id),
                  {:run_agent_step, "hello"},

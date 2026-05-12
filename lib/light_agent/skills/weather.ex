@@ -1,5 +1,5 @@
 defmodule LightAgent.Skills.Weather do
-  @moduledoc "提供天气查询和预报能力的技能包"
+  @moduledoc "Skill package for weather lookup and forecasting."
   use LightAgent.Core.Skill.CodeBasedSkill
 
   defmodule GetWeatherParams do
@@ -39,7 +39,7 @@ defmodule LightAgent.Skills.Weather do
     def required_fields, do: [:temperature]
   end
 
-  @doc "获取指定经纬度的当前天气"
+  @doc "Get current weather by coordinates."
   deftool(:get_weather, schema: GetWeatherParams)
 
   @impl true
@@ -58,10 +58,10 @@ defmodule LightAgent.Skills.Weather do
         temperature = current_weather["temperature"]
         temperature_unit = current_weather_units["temperature"]
 
-        "#{latitude}，#{longitude} 的天气是 #{current_weather["weathercode"]}，#{temperature} #{temperature_unit}。"
+        "Current weather at #{latitude}, #{longitude}: weather code #{current_weather["weathercode"]}, #{temperature} #{temperature_unit}."
 
       {:error, e} ->
-        "获取 #{latitude}，#{longitude} 的天气失败: #{inspect(e)}"
+        "Failed to get weather for #{latitude}, #{longitude}: #{inspect(e)}"
     end
   end
 end

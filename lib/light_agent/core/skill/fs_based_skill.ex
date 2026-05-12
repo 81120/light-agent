@@ -18,9 +18,9 @@ defmodule LightAgent.Core.Skill.FsBasedSkill do
       |> Jason.encode!()
 
     """
-    你可以使用#{AgentPaths.skills_root()}目录下的以下工具来回答问题：
+    You can use the following tools under #{AgentPaths.skills_root()} to answer questions:
     #{skills_meta}
-    你可以在需要的时候读取对应skill目录下的SKILL.md文件，来获取该工具的详细描述和使用方式。
+    You can read the SKILL.md file in a skill directory when needed to get detailed descriptions and usage instructions.
     """
   end
 

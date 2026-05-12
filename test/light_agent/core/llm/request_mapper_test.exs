@@ -45,7 +45,7 @@ defmodule LightAgent.Core.LLM.RequestMapperTest do
         type: "function",
         function: %{
           name: :read_file,
-          description: "读取文件",
+          description: "Read file",
           parameters: %{"type" => "object"}
         }
       }

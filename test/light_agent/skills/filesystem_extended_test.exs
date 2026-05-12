@@ -8,7 +8,7 @@ defmodule LightAgent.Skills.FilesystemExtendedTest do
       definition = Filesystem.__skill_definition__()
 
       assert definition.name == "Filesystem"
-      assert definition.description == "提供文件系统操作能力的技能包"
+      assert definition.description == "Skill package for filesystem operations."
       assert is_list(definition.tools)
     end
 
@@ -21,7 +21,7 @@ defmodule LightAgent.Skills.FilesystemExtendedTest do
         end)
 
       assert tool != nil
-      assert tool.description == "读取指定文件内容"
+      assert tool.description == "Read file content from a path."
       assert tool.function == :read_file
     end
 
@@ -34,7 +34,7 @@ defmodule LightAgent.Skills.FilesystemExtendedTest do
         end)
 
       assert tool != nil
-      assert tool.description == "写入内容到指定文件"
+      assert tool.description == "Write content to a file path."
       assert tool.function == :write_file
     end
 
@@ -69,7 +69,7 @@ defmodule LightAgent.Skills.FilesystemExtendedTest do
         })
 
       assert is_binary(result)
-      assert String.contains?(result, "失败")
+      assert String.contains?(result, "Failed")
     end
 
     test "writes and reads file with unicode content" do
@@ -90,7 +90,7 @@ defmodule LightAgent.Skills.FilesystemExtendedTest do
           "content" => unicode_content
         })
 
-      assert String.contains?(write_result, "成功")
+      assert String.contains?(write_result, "Successfully")
 
       result = Filesystem.exec(:read_file, %{"path" => path})
 
@@ -104,7 +104,7 @@ defmodule LightAgent.Skills.FilesystemExtendedTest do
           "content" => "test"
         })
 
-      assert String.contains?(result, "路径不在允许范围内")
+      assert String.contains?(result, "outside allowed roots")
     end
 
     test "normalizes relative path inside project root" do
@@ -124,7 +124,7 @@ defmodule LightAgent.Skills.FilesystemExtendedTest do
         Path.join(test_dir, "normalized_test.txt")
         |> Path.expand()
 
-      assert write_result == "成功写入文件 #{expected_path}"
+      assert write_result == "Successfully wrote file #{expected_path}"
 
       read_result = Filesystem.exec(:read_file, %{"path" => relative_path})
       assert read_result == "ok"
@@ -138,7 +138,7 @@ defmodule LightAgent.Skills.FilesystemExtendedTest do
         })
 
       assert is_binary(result)
-      assert String.contains?(result, "失败")
+      assert String.contains?(result, "Failed")
     end
   end
 end
@@ -165,6 +165,6 @@ defmodule LightAgent.Skills.LoadFsSkillTest do
   test "rejects invalid skill name" do
     result = LoadFsSkill.exec(:load_skill_md, %{"skill_name" => "../escape"})
 
-    assert String.contains?(result, "非法 skill_name")
+    assert String.contains?(result, "invalid skill_name")
   end
 end

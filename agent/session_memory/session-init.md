@@ -25,6 +25,13 @@
     }
   ],
   "session_id": "init",
-  "updated_at": "2026-04-09T08:02:18Z"
+  "token_usage_total": {
+    "completion_tokens": 0,
+    "missing_usage_steps": 0,
+    "prompt_tokens": 0,
+    "steps": 0,
+    "total_tokens": 0
+  },
+  "updated_at": "2026-05-12T06:55:36Z"
 }
 ```

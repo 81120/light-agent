@@ -1,5 +1,5 @@
 defmodule LightAgent.Skills.RunCommand do
-  @moduledoc "提供运行命令能力的技能包"
+  @moduledoc "Skill package for running shell commands."
 
   use LightAgent.Core.Skill.CodeBasedSkill
 
@@ -21,7 +21,7 @@ defmodule LightAgent.Skills.RunCommand do
     def required_fields, do: [:command]
   end
 
-  @doc "运行指定命令"
+  @doc "Run a shell command."
   deftool(:run_command, schema: RunCommandParams)
 
   @impl true
@@ -31,7 +31,7 @@ defmodule LightAgent.Skills.RunCommand do
         output
 
       {output, code} ->
-        "命令 #{command} 执行失败，退出码 #{code}，输出: #{output}"
+        "Command #{command} failed with exit code #{code}, output: #{output}"
     end
   end
 end

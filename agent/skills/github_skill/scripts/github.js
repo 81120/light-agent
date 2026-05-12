@@ -53,7 +53,7 @@ async function searchTopRepos(language, limit = 10) {
   try {
     const result = await fetch(url);
     if (!result.items || result.items.length === 0) {
-      console.log("未找到相关项目");
+      console.log("No matching repositories found");
       return;
     }
 
@@ -61,7 +61,7 @@ async function searchTopRepos(language, limit = 10) {
 
     // 打印标题
     console.log(`\n${"=".repeat(80)}`);
-    console.log(`  GitHub ${language.toUpperCase()} Top ${repos.length} 项目`);
+    console.log(`  GitHub ${language.toUpperCase()} Top ${repos.length} Repositories`);
     console.log(`${"=".repeat(80)}\n`);
 
     // 逐个打印项目信息
@@ -73,17 +73,17 @@ async function searchTopRepos(language, limit = 10) {
       console.log(`  ${rank}. ${repo.full_name}`);
       console.log(`      ${"⭐".repeat(Math.min(5, Math.ceil(repo.stargazers_count / 10000)))}`);
       console.log(`      Stars: ${stars}  |  Forks: ${forks}`);
-      console.log(`      描述: ${truncate(repo.description, 70)}`);
-      console.log(`      链接: ${repo.html_url}`);
+      console.log(`      Description: ${truncate(repo.description, 70)}`);
+      console.log(`      URL: ${repo.html_url}`);
       console.log();
     });
 
     console.log(`${"=".repeat(80)}`);
-    console.log(`  数据来源: GitHub API  |  更新时间: ${new Date().toISOString().split("T")[0]}`);
+    console.log(`  Source: GitHub API  |  Updated: ${new Date().toISOString().split("T")[0]}`);
     console.log(`${"=".repeat(80)}\n`);
 
   } catch (error) {
-    console.error(`搜索失败: ${error.message}`);
+    console.error(`Search failed: ${error.message}`);
     process.exit(1);
   }
 }
@@ -91,7 +91,7 @@ async function searchTopRepos(language, limit = 10) {
 // 获取仓库详情
 async function getRepoDetails(ownerRepo) {
   if (!ownerRepo.includes("/")) {
-    console.error("请使用格式: owner/repo");
+    console.error("Please use format: owner/repo");
     process.exit(1);
   }
 
@@ -106,8 +106,8 @@ async function getRepoDetails(ownerRepo) {
     console.log(`  ${result.full_name}`);
     console.log(`${"=".repeat(60)}\n`);
 
-    console.log(`  描述: ${result.description || "No description"}`);
-    console.log(`  主页: ${result.homepage || "N/A"}`);
+    console.log(`  Description: ${result.description || "No description"}`);
+    console.log(`  Homepage: ${result.homepage || "N/A"}`);
     console.log();
 
     console.log(`  ⭐ Stars:      ${formatNumber(result.stargazers_count)}`);
@@ -116,19 +116,19 @@ async function getRepoDetails(ownerRepo) {
     console.log(`  🐛 Issues:     ${formatNumber(result.open_issues_count)}`);
     console.log();
 
-    console.log(`  语言:         ${result.language || "Unknown"}`);
-    console.log(`  许可证:       ${result.license ? result.license.spdx_id : "No license"}`);
+    console.log(`  Language:     ${result.language || "Unknown"}`);
+    console.log(`  License:      ${result.license ? result.license.spdx_id : "No license"}`);
     console.log();
 
-    console.log(`  创建时间:     ${result.created_at.split("T")[0]}`);
-    console.log(`  最后更新:     ${result.updated_at.split("T")[0]}`);
+    console.log(`  Created:      ${result.created_at.split("T")[0]}`);
+    console.log(`  Updated:      ${result.updated_at.split("T")[0]}`);
     console.log();
 
     console.log(`  GitHub:       ${result.html_url}`);
     console.log(`\n${"=".repeat(60)}\n`);
 
   } catch (error) {
-    console.error(`获取仓库详情失败: ${error.message}`);
+    console.error(`Failed to fetch repository details: ${error.message}`);
     process.exit(1);
   }
 }
@@ -136,19 +136,19 @@ async function getRepoDetails(ownerRepo) {
 // 打印帮助信息
 function printHelp() {
   console.log(`
-GitHub Skill - 从 GitHub 获取仓库信息
+GitHub Skill - fetch repository information from GitHub
 
-用法:
-  node github.js search <language> [limit]  搜索热门项目
-  node github.js repo <owner/repo>          获取仓库详情
+Usage:
+  node github.js search <language> [limit]  Search trending repositories
+  node github.js repo <owner/repo>          Get repository details
 
-示例:
-  node github.js search elixir 10           搜索 Elixir Top 10 项目
-  node github.js search javascript 5        搜索 JavaScript Top 5 项目
-  node github.js repo phoenixframework/phoenix  获取 Phoenix 框架详情
+Examples:
+  node github.js search elixir 10           Search top 10 Elixir repositories
+  node github.js search javascript 5        Search top 5 JavaScript repositories
+  node github.js repo phoenixframework/phoenix  Get Phoenix repository details
 
-注意:
-  - GitHub API 有速率限制（未认证 60 次/小时）
+Notes:
+  - GitHub API has rate limits (60 requests/hour without authentication)
 `);
 }
 
@@ -166,7 +166,7 @@ function main() {
   switch (command) {
     case "search":
       if (args.length < 2) {
-        console.error("请提供语言名称: node github.js search <language> [limit]");
+        console.error("Please provide a language: node github.js search <language> [limit]");
         process.exit(1);
       }
       const language = args[1];
@@ -176,14 +176,14 @@ function main() {
 
     case "repo":
       if (args.length < 2) {
-        console.error("请提供仓库名称: node github.js repo <owner/repo>");
+        console.error("Please provide a repository: node github.js repo <owner/repo>");
         process.exit(1);
       }
       getRepoDetails(args[1]);
       break;
 
     default:
-      console.error(`未知命令: ${command}`);
+      console.error(`Unknown command: ${command}`);
       printHelp();
       process.exit(1);
   }

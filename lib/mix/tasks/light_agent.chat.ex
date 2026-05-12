@@ -5,24 +5,24 @@ defmodule Mix.Tasks.LightAgent.Chat do
   alias LightAgent.CLI.InputReader
   alias LightAgent.CLI.StatusFormatter
 
-  @shortdoc "启动 LightAgent 交互式 CLI"
+  @shortdoc "Start LightAgent interactive CLI"
 
   @moduledoc """
-  启动交互式 CLI。
+  Start the interactive CLI.
 
-  命令：
-    /help          - 查看帮助
-    /new           - 新建并切换到新 session
-    /sessions      - 列出所有 session
-    /pause         - 暂停当前 session
-    /switch <id>   - 切换到指定 session
-    /resume <id>   - 恢复指定 session
-    /delete <id>   - 删除指定 session
-    /history       - 查看当前 session 上下文
-    /exit          - 退出
+  Commands:
+    /help          - Show help
+    /new           - Create and switch to a new session
+    /sessions      - List all sessions
+    /pause         - Pause current session
+    /switch <id>   - Switch to a session
+    /resume <id>   - Resume a session
+    /delete <id>   - Delete a session
+    /history       - Show current session history
+    /exit          - Exit
 
-  特殊输入：
-    //xxx          - 发送以 / 开头的普通文本（会被解释为 /xxx）
+  Special input:
+    //xxx          - Send plain text starting with / (treated as /xxx)
   """
 
   @impl true
@@ -36,12 +36,12 @@ defmodule Mix.Tasks.LightAgent.Chat do
       {:restored, session_id, sessions} ->
         render_welcome(session_id)
         IO.puts(render_sessions_list(sessions))
-        IO.puts(muted("检测到历史会话，未自动创建新会话。"))
+        IO.puts(muted("Existing sessions detected; no new session was created automatically."))
 
       {:auto_switched, session_id, sessions} ->
         render_welcome(session_id)
         IO.puts(render_sessions_list(sessions))
-        IO.puts(muted("检测到唯一历史会话，已自动切换。"))
+        IO.puts(muted("One historical session detected; switched to it automatically."))
     end
 
     loop_plain()
@@ -57,7 +57,7 @@ defmodule Mix.Tasks.LightAgent.Chat do
 
       {:command, :new} ->
         {:ok, session_id} = LightAgent.Core.Worker.new_session()
-        emit_status(:success, "新会话创建成功", "session=#{session_id}")
+        emit_status(:success, "Session created", "session=#{session_id}")
         :cont
 
       {:command, :sessions} ->
@@ -68,41 +68,41 @@ defmodule Mix.Tasks.LightAgent.Chat do
         {:ok, session_id} =
           LightAgent.Core.Worker.pause_current_session()
 
-        emit_status(:warn, "当前会话已暂停", "session=#{session_id}")
+        emit_status(:warn, "Session paused", "session=#{session_id}")
         :cont
 
       {:command, :switch, ""} ->
-        emit_status(:error, "缺少参数", "请提供 session id，例如 /switch s1")
+        emit_status(:error, "Missing argument", "Please provide a session ID, e.g. /switch s1")
         :cont
 
       {:command, :switch, session_id} ->
         case LightAgent.Core.Worker.switch_session(session_id) do
           :ok ->
-            emit_status(:success, "会话切换成功", "session=#{session_id}")
+            emit_status(:success, "Session switched", "session=#{session_id}")
 
           {:error, :session_not_found} ->
-            emit_status(:error, "会话不存在", "session=#{session_id}")
+            emit_status(:error, "Session not found", "session=#{session_id}")
         end
 
         :cont
 
       {:command, :resume, ""} ->
-        emit_status(:error, "缺少参数", "请提供 session id，例如 /resume s1")
+        emit_status(:error, "Missing argument", "Please provide a session ID, e.g. /resume s1")
         :cont
 
       {:command, :resume, session_id} ->
         case LightAgent.Core.Worker.resume_session(session_id) do
           :ok ->
-            emit_status(:success, "会话恢复成功", "session=#{session_id}")
+            emit_status(:success, "Session resumed", "session=#{session_id}")
 
           {:error, :session_not_found} ->
-            emit_status(:error, "会话不存在", "session=#{session_id}")
+            emit_status(:error, "Session not found", "session=#{session_id}")
         end
 
         :cont
 
       {:command, :delete, ""} ->
-        emit_status(:error, "缺少参数", "请提供 session id，例如 /delete s2")
+        emit_status(:error, "Missing argument", "Please provide a session ID, e.g. /delete s2")
         :cont
 
       {:command, :delete, session_id} ->
@@ -110,15 +110,15 @@ defmodule Mix.Tasks.LightAgent.Chat do
           {:ok, current_session_id} ->
             emit_status(
               :success,
-              "会话删除成功",
+              "Session deleted",
               "deleted=#{session_id}, current=#{current_session_id}"
             )
 
           {:error, :session_not_found} ->
-            emit_status(:error, "会话不存在", "session=#{session_id}")
+            emit_status(:error, "Session not found", "session=#{session_id}")
 
           {:error, :cannot_delete_last_session} ->
-            emit_status(:error, "删除失败", "无法删除最后一个 session")
+            emit_status(:error, "Delete failed", "Cannot delete the last session")
         end
 
         :cont
@@ -141,12 +141,12 @@ defmodule Mix.Tasks.LightAgent.Chat do
 
       {:command, :plan, :on} ->
         :ok = LightAgent.Core.Worker.set_mode(:plan)
-        emit_status(:warn, "已进入 plan mode", "当前模式=plan（工具执行将被阻断）")
+        emit_status(:warn, "Entered plan mode", "mode=plan (tool execution is blocked)")
         :cont
 
       {:command, :plan, :off} ->
         :ok = LightAgent.Core.Worker.set_mode(:normal)
-        emit_status(:success, "已退出 plan mode", "当前模式=normal")
+        emit_status(:success, "Exited plan mode", "mode=normal")
         :cont
 
       {:command, :plan, :apply} ->
@@ -154,19 +154,19 @@ defmodule Mix.Tasks.LightAgent.Chat do
 
         cond do
           mode != :plan ->
-            emit_status(:error, "请先进入 plan mode", "先执行 /plan on")
+            emit_status(:error, "Plan mode required", "Run /plan on first")
 
           true ->
             case LightAgent.Core.Worker.apply_plan() do
               :ok ->
-                emit_status(:success, "计划开始执行", "status=applying")
+                emit_status(:success, "Plan execution started", "status=applying")
                 IO.puts(render_plan_progress())
 
                 io_device = Process.group_leader()
 
                 reply =
                   run_agent_with_usage(
-                    "请按照当前计划自动继续执行：优先完成 in_progress 子任务，完成后推进到下一个，直到全部任务完成。"
+                    "Please continue executing the current plan automatically: complete the in_progress task first, then move to the next one, until all tasks are done."
                   )
 
                 IO.puts(
@@ -182,14 +182,14 @@ defmodule Mix.Tasks.LightAgent.Chat do
 
                 if Map.get(plan, "status") == "completed" do
                   :ok = LightAgent.Core.Worker.set_mode(:normal)
-                  emit_status(:success, "计划执行完成，已退出 plan mode", "当前模式=normal")
+                  emit_status(:success, "Plan execution completed; exited plan mode", "mode=normal")
                 end
 
               {:error, :empty_plan} ->
-                emit_status(:error, "没有可执行计划", "请先在 plan mode 输入需求来生成计划")
+                emit_status(:error, "No executable plan", "Provide requirements in plan mode first to generate a plan")
 
               {:error, reason} ->
-                emit_status(:error, "执行失败", inspect(reason))
+                emit_status(:error, "Execution failed", inspect(reason))
             end
         end
 
@@ -240,10 +240,10 @@ defmodule Mix.Tasks.LightAgent.Chat do
 
           case Map.get(latest_plan, "status") do
             "ready" ->
-              emit_status(:success, "计划已更新", "可继续输入迭代，或执行 /plan apply")
+              emit_status(:success, "Plan updated", "Continue iterating or run /plan apply")
 
             _ ->
-              emit_status(:warn, "计划仍在制定中", "请继续补充需求，直到产出结构化计划")
+              emit_status(:warn, "Plan is still drafting", "Keep adding requirements until a structured plan is produced")
           end
         end
 
@@ -311,7 +311,7 @@ defmodule Mix.Tasks.LightAgent.Chat do
 
     [
       primary("Command Panel"),
-      muted("输入 //xxx 可发送以 / 开头的普通文本"),
+      muted("Type //xxx to send plain text that starts with /"),
       "" | lines
     ]
     |> Enum.join("\n")
@@ -321,12 +321,12 @@ defmodule Mix.Tasks.LightAgent.Chat do
     suggestions = CommandRouter.suggest(cmd)
 
     if suggestions == [] do
-      render_status_block(:error, "未知命令", "/#{cmd}；输入 /help 查看所有命令")
+      render_status_block(:error, "Unknown command", "/#{cmd}; run /help to list all commands")
     else
       render_status_block(
         :error,
-        "未知命令",
-        "/#{cmd}；你可能想输入: #{Enum.join(suggestions, ", ")}"
+        "Unknown command",
+        "/#{cmd}; did you mean: #{Enum.join(suggestions, ", ")}"
       )
     end
   end
@@ -691,9 +691,9 @@ defmodule Mix.Tasks.LightAgent.Chat do
   defp render_welcome(session_id) do
     IO.puts(
       [
-        primary("LightAgent TUI 已启动"),
-        muted("当前 session: #{session_id}"),
-        muted("输入 /help 查看命令")
+        primary("LightAgent TUI started"),
+        muted("Current session: #{session_id}"),
+        muted("Type /help to view commands")
       ]
       |> Enum.join(" | ")
     )
@@ -774,10 +774,10 @@ defmodule Mix.Tasks.LightAgent.Chat do
 
   defp plan_drafting_prompt(user_feedback) do
     [
-      "你当前处于 plan 制定阶段。你的唯一目标是根据用户反馈制定或更新可执行计划；不要调用任何工具，不要执行任务。",
-      "必须仅输出 JSON，格式严格为：{\"title\": string, \"tasks\": [{\"id\": \"T1\", \"text\": string}] }。",
-      "tasks 必须非空，text 要具体、可执行。",
-      "用户反馈：#{user_feedback}"
+      "You are in the plan drafting stage. Your only goal is to create or update an executable plan based on user feedback. Do not call tools and do not execute tasks.",
+      "You must output JSON only, strictly in this format: {\"title\": string, \"tasks\": [{\"id\": \"T1\", \"text\": string}] }.",
+      "tasks must be non-empty, and each text must be specific and actionable.",
+      "User feedback: #{user_feedback}"
     ]
     |> Enum.join("\n")
   end

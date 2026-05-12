@@ -9,7 +9,6 @@ const rl = readline.createInterface({
   output: process.stdout,
 });
 
-// 提问函数
 function question(prompt) {
   return new Promise((resolve) => {
     rl.question(prompt, (answer) => {
@@ -18,16 +17,14 @@ function question(prompt) {
   });
 }
 
-// 验证 skill 名称
 function validateSkillName(name) {
   const regex = /^[a-z][a-z0-9_-]*$/;
   if (!regex.test(name)) {
-    return "Skill 名称必须以小写字母开头，只能包含小写字母、数字、下划线和连字符";
+    return "Skill name must start with a lowercase letter and contain only lowercase letters, numbers, underscores, and dashes";
   }
   return null;
 }
 
-// 生成 SKILL.md 内容
 function generateSkillMd(
   skillName,
   description,
@@ -36,32 +33,27 @@ function generateSkillMd(
   params,
 ) {
   const paramsList = params.map((p) => `<${p}>`).join(" ");
-  const paramsExample = params.map((p) => `["${p}_value"]`).join(" ");
 
   let runCommand = "";
-  let langHint = "";
 
   switch (scriptLang) {
     case "node":
       runCommand = `node scripts/${scriptCommand}.js ${paramsList}`;
-      langHint = "Node.js";
       break;
     case "shell":
       runCommand = `bash scripts/${scriptCommand}.sh ${paramsList}`;
-      langHint = "Bash";
       break;
     case "python":
       runCommand = `python scripts/${scriptCommand}.py ${paramsList}`;
-      langHint = "Python";
       break;
   }
 
   const paramsSection =
     params.length > 0
       ? `
-## 参数说明
+## Parameters
 
-${params.map((p) => `- \`${p}\`: TODO - 补充参数说明`).join("\n")}
+${params.map((p) => `- \`${p}\`: TODO - add parameter description`).join("\n")}
 `
       : "";
 
@@ -72,31 +64,30 @@ description: ${description}
 
 # ${toTitleCase(skillName.replace(/_/g, " ").replace(/-/g, " "))}
 
-## 适用场景
+## Use Cases
 
 ${description}
 
-## 使用步骤
+## Steps
 
-1. TODO - 补充前置条件。
-2. 运行脚本 \`${runCommand}\`。运行之前 cd 到对应的目录。
-3. 脚本将返回执行结果。
-${paramsSection}
-## 输出格式
+1. TODO - add prerequisites.
+2. Run \`${runCommand}\` from this skill directory.
+3. The script returns execution output.
+${paramsSection}## Output Format
 
-- TODO - 补充输出格式说明
-- 若调用失败，将打印错误信息。
+- TODO - add output format details
+- On failure, the script prints an error message.
 
-## 示例
+## Example
 
 \`\`\`bash
 cd /path/to/light-agent/agent/skills/${skillName}
 ${runCommand.replace(/>/g, "_value")}
 \`\`\`
 
-## 注意事项
+## Notes
 
-- TODO - 补充注意事项
+- TODO - add notes
 `;
 
   function toTitleCase(str) {
@@ -107,7 +98,6 @@ ${runCommand.replace(/>/g, "_value")}
   }
 }
 
-// 生成 Node.js 脚本模板
 function generateNodeScript(skillName, scriptCommand, params) {
   const paramsCode = params
     .map((p, i) => `const ${p} = process.argv[${i + 2}];`)
@@ -116,7 +106,7 @@ function generateNodeScript(skillName, scriptCommand, params) {
   const paramsValidation = params
     .map(
       (p) => `if (!${p}) {
-    console.error("请提供 ${p}");
+    console.error("Please provide ${p}");
     process.exit(1);
   }`,
     )
@@ -124,8 +114,8 @@ function generateNodeScript(skillName, scriptCommand, params) {
 
   const mainLogic =
     params.length > 0
-      ? `console.log("Skill: ${skillName}");\n  console.log("参数: ${params.map((p) => `${p} = \${${p}}`).join(", ")}");\n  \n  // TODO: 实现主要逻辑`
-      : `console.log("Skill: ${skillName}");\n  \n  // TODO: 实现主要逻辑`;
+      ? `console.log("Skill: ${skillName}");\n  console.log("Arguments: ${params.map((p) => `${p} = \${${p}}`).join(", ")}");\n  \n  // TODO: implement main logic`
+      : `console.log("Skill: ${skillName}");\n  \n  // TODO: implement main logic`;
 
   return `const crypto = require("crypto");
 
@@ -137,12 +127,11 @@ main();
 `;
 }
 
-// 生成 Shell 脚本模板
 function generateShellScript(skillName, scriptCommand, params) {
   const paramsCheck = params
     .map(
       (p, i) => `if [ -z "\$${i + 1}" ]; then
-  echo "请提供 ${p}"
+  echo "Please provide ${p}"
   exit 1
 fi`,
     )
@@ -153,12 +142,10 @@ fi`,
   return `#!/bin/bash
 
 ${params.length > 0 ? paramsCheck + "\n\n" : ""}echo "Skill: ${skillName}"
-${params.length > 0 ? `echo "参数: ${paramsEcho}"\n` : ""}
-# TODO: 实现主要逻辑
+${params.length > 0 ? `echo "Arguments: ${paramsEcho}"\n` : ""}# TODO: implement main logic
 `;
 }
 
-// 生成 Python 脚本模板
 function generatePythonScript(skillName, scriptCommand, params) {
   const paramsCode = params
     .map(
@@ -170,15 +157,15 @@ function generatePythonScript(skillName, scriptCommand, params) {
   const paramsValidation = params
     .map(
       (p) => `    if not ${p}:
-        print("请提供 ${p}")
+        print("Please provide ${p}")
         sys.exit(1)`,
     )
     .join("\n\n");
 
   const mainLogic =
     params.length > 0
-      ? `    print(f"Skill: ${skillName}")\n    print(f"参数: ${params.map((p) => `${p}={${p}}`).join(", ")}")\n    \n    # TODO: 实现主要逻辑`
-      : `    print("Skill: ${skillName}")\n    \n    # TODO: 实现主要逻辑`;
+      ? `    print(f"Skill: ${skillName}")\n    print(f"Arguments: ${params.map((p) => `${p}={${p}}`).join(", ")}")\n    \n    # TODO: implement main logic`
+      : `    print("Skill: ${skillName}")\n    \n    # TODO: implement main logic`;
 
   return `import sys
 
@@ -190,16 +177,14 @@ if __name__ == "__main__":
 `;
 }
 
-// 主创建流程
 async function createSkill() {
   console.log("\n========================================");
-  console.log("  Skill Creator - 创建新的 Skill");
+  console.log("  Skill Creator - Create a New Skill");
   console.log("========================================\n");
 
-  // 1. 收集 Skill 名称
   let skillName;
   while (true) {
-    skillName = await question("Skill 名称 (如 weather_skill): ");
+    skillName = await question("Skill name (e.g. weather_skill): ");
     const error = validateSkillName(skillName);
     if (error) {
       console.log(`  ❌ ${error}\n`);
@@ -208,30 +193,27 @@ async function createSkill() {
     }
   }
 
-  // 2. 收集功能描述
-  const description = await question("功能描述: ");
+  const description = await question("Description: ");
 
-  // 3. 选择脚本语言
-  console.log("\n脚本语言选项:");
+  console.log("\nScript language options:");
   console.log("  1. Node.js");
   console.log("  2. Shell (Bash)");
   console.log("  3. Python");
   let scriptLang;
   while (true) {
-    const choice = await question("选择脚本语言 [1-3]: ");
+    const choice = await question("Choose script language [1-3]: ");
     const langMap = { 1: "node", 2: "shell", 3: "python" };
     if (langMap[choice]) {
       scriptLang = langMap[choice];
       break;
     }
-    console.log("  ❌ 请输入 1、2 或 3");
+    console.log("  ❌ Please enter 1, 2, or 3");
   }
 
-  // 4. 脚本命令名称
   let scriptCommand;
   while (true) {
     scriptCommand = await question(
-      `脚本命令名称 (默认: ${skillName.replace(/_/g, "-")}): `,
+      `Script command name (default: ${skillName.replace(/_/g, "-")}): `,
     );
     if (!scriptCommand) {
       scriptCommand = skillName.replace(/_/g, "-");
@@ -244,9 +226,8 @@ async function createSkill() {
     }
   }
 
-  // 5. 参数列表
   const paramsInput = await question(
-    "参数列表 (用逗号分隔，如 city,unit，可留空): ",
+    "Argument list (comma-separated, e.g. city,unit; optional): ",
   );
   const params = paramsInput
     ? paramsInput
@@ -255,48 +236,41 @@ async function createSkill() {
         .filter((p) => p)
     : [];
 
-  // 6. 确认信息
   console.log("\n----------------------------------------");
-  console.log("  确认信息:");
+  console.log("  Confirmation:");
   console.log("----------------------------------------");
-  console.log(`  Skill 名称:   ${skillName}`);
-  console.log(`  功能描述:     ${description}`);
+  console.log(`  Skill name:      ${skillName}`);
+  console.log(`  Description:     ${description}`);
   console.log(
-    `  脚本语言:     ${scriptLang === "node" ? "Node.js" : scriptLang === "shell" ? "Bash" : "Python"}`,
+    `  Script language: ${scriptLang === "node" ? "Node.js" : scriptLang === "shell" ? "Bash" : "Python"}`,
   );
-  console.log(`  脚本命令:     ${scriptCommand}`);
-  console.log(
-    `  参数列表:     ${params.length > 0 ? params.join(", ") : "无"}`,
-  );
+  console.log(`  Script command:  ${scriptCommand}`);
+  console.log(`  Arguments:       ${params.length > 0 ? params.join(", ") : "none"}`);
   console.log("----------------------------------------\n");
 
-  const confirm = await question("确认创建? [y/N]: ");
+  const confirm = await question("Create this skill? [y/N]: ");
   if (confirm.toLowerCase() !== "y") {
-    console.log("\n  已取消创建。\n");
+    console.log("\n  Creation canceled.\n");
     rl.close();
     return;
   }
 
-  // 7. 创建文件
   const skillDir = path.join(SKILLS_DIR, skillName);
   const scriptsDir = path.join(skillDir, "scripts");
 
-  // 检查是否已存在
   if (fs.existsSync(skillDir)) {
     const overwrite = await question(
-      `Skill "${skillName}" 已存在，是否覆盖? [y/N]: `,
+      `Skill "${skillName}" already exists. Overwrite? [y/N]: `,
     );
     if (overwrite.toLowerCase() !== "y") {
-      console.log("\n  已取消创建。\n");
+      console.log("\n  Creation canceled.\n");
       rl.close();
       return;
     }
   }
 
-  // 创建目录
   fs.mkdirSync(scriptsDir, { recursive: true });
 
-  // 生成 SKILL.md
   const skillMdContent = generateSkillMd(
     skillName,
     description,
@@ -307,7 +281,6 @@ async function createSkill() {
   const skillMdPath = path.join(skillDir, "SKILL.md");
   fs.writeFileSync(skillMdPath, skillMdContent);
 
-  // 生成脚本
   let scriptContent;
   let scriptExt;
   switch (scriptLang) {
@@ -328,46 +301,42 @@ async function createSkill() {
   const scriptPath = path.join(scriptsDir, `${scriptCommand}.${scriptExt}`);
   fs.writeFileSync(scriptPath, scriptContent);
 
-  // 设置脚本权限（Shell）
   if (scriptLang === "shell") {
     fs.chmodSync(scriptPath, "755");
   }
 
-  // 8. 输出结果
   console.log("\n========================================");
-  console.log("  ✅ Skill 创建成功!");
+  console.log("  ✅ Skill created successfully!");
   console.log("========================================\n");
-  console.log(`  创建位置: ${skillDir}`);
-  console.log(`  文件列表:`);
-  console.log(`    ├── SKILL.md`);
-  console.log(`    └── scripts/`);
+  console.log(`  Location: ${skillDir}`);
+  console.log("  Files:");
+  console.log("    ├── SKILL.md");
+  console.log("    └── scripts/");
   console.log(`        └── ${scriptCommand}.${scriptExt}`);
-  console.log("\n  下一步:");
-  console.log(`  1. 编辑 SKILL.md 补充详细说明`);
-  console.log(`  2. 编辑 ${scriptCommand}.${scriptExt} 实现具体逻辑`);
+  console.log("\n  Next steps:");
+  console.log("  1. Edit SKILL.md and add detailed guidance");
+  console.log(`  2. Edit ${scriptCommand}.${scriptExt} and implement logic`);
   console.log(
-    `  3. 测试脚本: cd ${skillDir} && node scripts/${scriptCommand}.${scriptExt} ${params.map((p) => `<${p}>`).join(" ")}`,
+    `  3. Test: cd ${skillDir} && node scripts/${scriptCommand}.${scriptExt} ${params.map((p) => `<${p}>`).join(" ")}`,
   );
   console.log();
 
   rl.close();
 }
 
-// 打印帮助
 function printHelp() {
   console.log(`
-Skill Creator - 帮助创建新的 Skill
+Skill Creator - help you create new skills
 
-用法:
-  node skill_creator.js create    交互式创建新 skill
-  node skill_creator.js -h        显示帮助信息
+Usage:
+  node skill_creator.js create    Create a new skill interactively
+  node skill_creator.js -h        Show help
 
-示例:
+Examples:
   node skill_creator.js create
 `);
 }
 
-// 主函数
 function main() {
   const args = process.argv.slice(2);
 
@@ -383,7 +352,7 @@ function main() {
       createSkill();
       break;
     default:
-      console.error(`未知命令: ${command}`);
+      console.error(`Unknown command: ${command}`);
       printHelp();
       process.exit(1);
   }

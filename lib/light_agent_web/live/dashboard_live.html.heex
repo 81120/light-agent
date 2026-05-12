@@ -26,7 +26,7 @@
 
         <section class="list-section">
           <h3 class="list-section-title">Sessions</h3>
-          <p class="list-section-meta">共 <%= length(@sessions) %> 个</p>
+          <p class="list-section-meta">Total: <%= length(@sessions) %></p>
           <ul class="card-list">
             <li :for={session <- @sessions}>
               <button
@@ -88,7 +88,7 @@
           <section class="card detail-card">
             <h2 class="card-title">Session Detail</h2>
 
-            <div :if={@session_detail == nil} class="empty">session 不存在或已被删除。</div>
+            <div :if={@session_detail == nil} class="empty">Session not found or has been deleted.</div>
 
             <div :if={@session_detail != nil}>
               <dl class="kv">
@@ -113,7 +113,7 @@
 
           <section class="card detail-card">
             <h2 class="card-title">Session History</h2>
-            <div :if={@session_history == []} class="empty">无 history 数据。</div>
+            <div :if={@session_history == []} class="empty">No history data.</div>
             <% history_count = length(@session_history) %>
             <ol class="history-list">
               <li :for={{msg, idx} <- Enum.with_index(@session_history)} class="history-item">

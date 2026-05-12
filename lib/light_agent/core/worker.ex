@@ -19,7 +19,7 @@ defmodule LightAgent.Core.Worker do
         run_agent()
 
       {:done, content, _step_usage} ->
-        Logger.debug("Agent 完成任务：#{content}")
+        Logger.debug("Agent completed task: #{content}")
         content
     end
   end
@@ -385,7 +385,7 @@ defmodule LightAgent.Core.Worker do
               Usage.default_token_usage_total()
             )
 
-          {:done, "当前 session 不存在，请先 /new 后再继续。", step_usage}
+          {:done, "Current session does not exist. Run /new before continuing.", step_usage}
       end
 
     Events.broadcast_session_updated(state.current_session_id, :history_updated)

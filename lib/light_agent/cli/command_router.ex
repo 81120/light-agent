@@ -4,92 +4,92 @@ defmodule LightAgent.CLI.CommandRouter do
       cmd: "/help",
       args: "",
       group: :general,
-      desc: "显示帮助面板",
-      tips: "先用它了解命令"
+      desc: "Show help panel",
+      tips: "Start here to learn commands"
     },
     %{
       cmd: "/new",
       args: "",
       group: :session,
-      desc: "创建并切换到新会话",
-      tips: "新会话从干净上下文开始"
+      desc: "Create and switch to a new session",
+      tips: "A new session starts with clean context"
     },
     %{
       cmd: "/sessions",
       args: "",
       group: :session,
-      desc: "列出所有会话",
-      tips: "配合 /switch 和 /resume 使用"
+      desc: "List all sessions",
+      tips: "Use with /switch and /resume"
     },
     %{
       cmd: "/pause",
       args: "",
       group: :session,
-      desc: "暂停当前会话",
-      tips: "暂停后不会执行 LLM 调用"
+      desc: "Pause current session",
+      tips: "No LLM calls run while paused"
     },
     %{
       cmd: "/switch",
       args: "<id>",
       group: :session,
-      desc: "切换到指定会话",
-      tips: "先用 /sessions 查看 id"
+      desc: "Switch to a session",
+      tips: "Use /sessions first to find IDs"
     },
     %{
       cmd: "/resume",
       args: "<id>",
       group: :session,
-      desc: "恢复指定会话",
-      tips: "仅对 paused 会话有意义"
+      desc: "Resume a session",
+      tips: "Only meaningful for paused sessions"
     },
     %{
       cmd: "/delete",
       args: "<id>",
       group: :session,
-      desc: "删除指定会话",
-      tips: "不能删除最后一个会话"
+      desc: "Delete a session",
+      tips: "You cannot delete the last session"
     },
     %{
       cmd: "/history",
       args: "",
       group: :view,
-      desc: "查看当前会话历史",
-      tips: "用于快速确认上下文"
+      desc: "Show current session history",
+      tips: "Use it to quickly confirm context"
     },
     %{
       cmd: "/usage",
       args: "",
       group: :view,
-      desc: "查看当前会话 token 使用",
-      tips: "显示输入/输出/总量与缺失统计"
+      desc: "Show current token usage",
+      tips: "Includes input/output/total and missing usage count"
     },
     %{
       cmd: "/skills",
       args: "",
       group: :view,
-      desc: "查看已注册 skill",
-      tips: "显示当前启用的 skill 模块"
+      desc: "Show registered skills",
+      tips: "Displays currently enabled skill modules"
     },
     %{
       cmd: "/tools",
       args: "",
       group: :view,
-      desc: "查看已注册 tool",
-      tips: "显示当前可调用工具"
+      desc: "Show registered tools",
+      tips: "Displays callable tools"
     },
     %{
       cmd: "/plan",
       args: "on|off|progress|apply",
       group: :session,
-      desc: "切换/查看进度/执行计划",
-      tips: "plan on 后通过普通输入迭代计划，完成后 apply"
+      desc: "Toggle/check/apply plan",
+      tips: "Use plan on to draft, then apply to execute"
     },
     %{
       cmd: "/exit",
       args: "",
       group: :general,
-      desc: "退出 CLI",
-      tips: "也可以使用 Ctrl+C"
+      desc: "Exit CLI",
+      tips: "You can also use Ctrl+C"
     }
   ]
 

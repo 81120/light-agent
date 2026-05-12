@@ -113,13 +113,13 @@ defmodule LightAgentWeb.DashboardLive do
             socket
             |> assign(:session_detail, nil)
             |> assign(:session_history, [])
-            |> assign(:error, "session 不存在或已被删除")
+            |> assign(:error, "Session not found or has been deleted")
 
           {:error, reason} ->
             socket
             |> assign(:session_detail, nil)
             |> assign(:session_history, [])
-            |> assign(:error, "加载 session 数据失败: #{inspect(reason)}")
+            |> assign(:error, "Failed to load session data: #{inspect(reason)}")
         end
     end
   end

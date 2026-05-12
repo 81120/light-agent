@@ -8,7 +8,7 @@ defmodule LightAgent.Skills.LocationTest do
       definition = Location.__skill_definition__()
 
       assert definition.name == "Location"
-      assert definition.description == "提供位置查询能力的技能包"
+      assert definition.description == "Skill package for location lookup."
       assert is_list(definition.tools)
     end
 
@@ -21,7 +21,7 @@ defmodule LightAgent.Skills.LocationTest do
         end)
 
       assert tool != nil
-      assert tool.description == "获取指定城市的经纬度"
+      assert tool.description == "Get latitude and longitude for a city."
       assert tool.function == :get_location
     end
 
@@ -44,7 +44,7 @@ defmodule LightAgent.Skills.LocationTest do
       assert is_binary(result)
 
       assert String.contains?(result, "Beijing") or
-               String.contains?(result, "失败")
+               String.contains?(result, "Failed")
     end
   end
 end

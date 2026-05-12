@@ -1,5 +1,5 @@
 defmodule LightAgent.Skills.Filesystem do
-  @moduledoc "提供文件系统操作能力的技能包"
+  @moduledoc "Skill package for filesystem operations."
 
   use LightAgent.Core.Skill.CodeBasedSkill
 
@@ -42,7 +42,7 @@ defmodule LightAgent.Skills.Filesystem do
     def required_fields, do: [:path, :content]
   end
 
-  @doc "读取指定文件内容"
+  @doc "Read file content from a path."
   deftool(:read_file, schema: ReadFileParams)
 
   @impl true
@@ -52,27 +52,27 @@ defmodule LightAgent.Skills.Filesystem do
       content
     else
       {:error, :outside_allowed_roots} ->
-        "读取文件 #{path} 失败: 路径不在允许范围内"
+        "Failed to read file #{path}: path is outside allowed roots"
 
       {:error, reason} ->
-        "读取文件 #{path} 失败: #{inspect(reason)}"
+        "Failed to read file #{path}: #{inspect(reason)}"
     end
   end
 
-  @doc "写入内容到指定文件"
+  @doc "Write content to a file path."
   deftool(:write_file, schema: WriteFileParams)
 
   @impl true
   def exec(:write_file, %{"path" => path, "content" => content}) do
     with {:ok, normalized_path} <- AgentPaths.normalize_and_authorize_path(path),
          :ok <- File.write(normalized_path, content) do
-      "成功写入文件 #{normalized_path}"
+      "Successfully wrote file #{normalized_path}"
     else
       {:error, :outside_allowed_roots} ->
-        "写入文件 #{path} 失败: 路径不在允许范围内"
+        "Failed to write file #{path}: path is outside allowed roots"
 
       {:error, reason} ->
-        "写入文件 #{path} 失败: #{inspect(reason)}"
+        "Failed to write file #{path}: #{inspect(reason)}"
     end
   end
 end

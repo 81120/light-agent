@@ -21,7 +21,7 @@ defmodule LightAgent.Skills.LoadFsSkill do
     def required_fields, do: [:skill_name]
   end
 
-  @doc "加载指定的基于文件系统的skill的SKILL.md文件的内容"
+  @doc "Load the SKILL.md content for a filesystem-based skill."
   deftool(:load_skill_md, schema: LoadSkillMdParams)
 
   def exec(:load_skill_md, %{"skill_name" => skill_name}) do
@@ -37,13 +37,13 @@ defmodule LightAgent.Skills.LoadFsSkill do
       content
     else
       {:error, :invalid_skill_name} ->
-        "读取skill #{skill_name} 的SKILL.md文件失败: 非法 skill_name"
+        "Failed to read SKILL.md for skill #{skill_name}: invalid skill_name"
 
       {:error, :outside_allowed_roots} ->
-        "读取skill #{skill_name} 的SKILL.md文件失败: 路径不在允许范围内"
+        "Failed to read SKILL.md for skill #{skill_name}: path is outside allowed roots"
 
       {:error, reason} ->
-        "读取skill #{skill_name} 的SKILL.md文件失败: #{inspect(reason)}"
+        "Failed to read SKILL.md for skill #{skill_name}: #{inspect(reason)}"
     end
   end
 

@@ -175,7 +175,7 @@ defmodule LightAgent.Core.SessionServer do
       step_usage =
         Usage.build_step_usage(nil, state.token_usage_total)
 
-      {{:done, "当前 session 已暂停，请先 /resume 后再继续。", step_usage}, state}
+      {{:done, "Current session is paused. Run /resume before continuing.", step_usage}, state}
     else
       state =
         if user_input do
@@ -278,7 +278,7 @@ defmodule LightAgent.Core.SessionServer do
         {{:done, content, step_usage}, state}
 
       _ ->
-        {{:done, "LLM 返回异常，请稍后重试。", step_usage}, state}
+        {{:done, "LLM returned an invalid response. Please try again later.", step_usage}, state}
     end
   end
 
@@ -313,7 +313,7 @@ defmodule LightAgent.Core.SessionServer do
       |> Enum.reject(&is_nil/1)
 
     [
-      "你上一次 tool 调用参数不合法，请仅修正参数后重新调用对应工具。",
+      "Your previous tool call used invalid arguments. Please fix only the arguments and call the same tool again.",
       Enum.join(errors, "\n")
     ]
     |> Enum.join("\n")
@@ -327,7 +327,7 @@ defmodule LightAgent.Core.SessionServer do
       end)
       |> Enum.join("; ")
 
-    "tool=#{tool} 参数错误: #{detail}"
+"tool=#{tool} argument error: #{detail}"
   end
 
   defp persist_history(state) do

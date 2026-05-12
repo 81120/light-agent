@@ -8,7 +8,7 @@ defmodule LightAgent.Skills.WeatherTest do
       definition = Weather.__skill_definition__()
 
       assert definition.name == "Weather"
-      assert definition.description == "提供天气查询和预报能力的技能包"
+      assert definition.description == "Skill package for weather lookup and forecasting."
       assert is_list(definition.tools)
     end
 
@@ -21,7 +21,7 @@ defmodule LightAgent.Skills.WeatherTest do
         end)
 
       assert tool != nil
-      assert tool.description == "获取指定经纬度的当前天气"
+      assert tool.description == "Get current weather by coordinates."
       assert tool.function == :get_weather
     end
 
@@ -46,7 +46,7 @@ defmodule LightAgent.Skills.WeatherTest do
         })
 
       assert is_binary(result)
-      assert String.contains?(result, "天气") or String.contains?(result, "失败")
+      assert String.contains?(result, "weather") or String.contains?(result, "Failed")
     end
   end
 end

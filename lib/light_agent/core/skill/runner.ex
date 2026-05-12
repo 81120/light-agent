@@ -4,7 +4,7 @@ defmodule LightAgent.Core.Skill.Runner do
   alias LightAgent.Core.Skill.SchemaJsonSchema
   alias LightAgent.Core.Skill.ToolArgsValidator
 
-  @moduledoc "运行器，负责管理和执行任务"
+  @moduledoc "Runner responsible for managing and executing tools."
   def list_skills do
     [
       LightAgent.Skills.Location,
@@ -69,7 +69,7 @@ defmodule LightAgent.Core.Skill.Runner do
     Jason.encode!(%{
       "type" => "plan_mode_blocked",
       "tool" => function_name,
-      "message" => "plan mode 下未 apply 计划，禁止执行工具"
+      "message" => "Tool execution is blocked in plan mode before apply"
     })
   end
 
@@ -90,7 +90,7 @@ defmodule LightAgent.Core.Skill.Runner do
             Jason.encode!(%{
               "type" => "permission_denied",
               "tool" => function_name,
-              "message" => "用户拒绝执行该操作"
+              "message" => "User denied this operation"
             })
         end
       else
@@ -98,7 +98,7 @@ defmodule LightAgent.Core.Skill.Runner do
       end
     else
       {:error, :tool_not_found} ->
-        "工具 #{function_name} 不存在"
+        "Tool #{function_name} does not exist"
 
       {:error, validation_error} when is_map(validation_error) ->
         Jason.encode!(validation_error)

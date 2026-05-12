@@ -1,64 +1,64 @@
 ---
 name: github_skill
-description: 从 GitHub 获取仓库信息，支持搜索热门项目、查询仓库详情。当需要查询 GitHub 项目信息时使用该技能。
+description: Fetch repository information from GitHub, including trending project search and repository detail lookup. Use this skill when you need GitHub project information.
 ---
 
 # GitHub Skill
 
-## 适用场景
+## Use Cases
 
-当需要从 GitHub 获取以下信息时，使用该技能：
+Use this skill to fetch the following from GitHub:
 
-- 按语言搜索热门项目
-- 查询特定仓库的详细信息
-- 获取项目的 stars、forks、描述等
+- Search trending repositories by language
+- Query details for a specific repository
+- Get stars, forks, descriptions, and related metadata
 
-## 使用步骤
+## Steps
 
-1. 确定查询类型（搜索或详情）。
-2. 运行脚本 `node scripts/github.js <command> [args]`。运行之前 cd 到对应的目录。
-3. 脚本将返回 JSON 格式的结果。
+1. Decide the query type (search or repository detail).
+2. Run `node scripts/github.js <command> [args]` from this skill directory.
+3. The script returns JSON output.
 
-## 命令说明
+## Commands
 
-### 搜索热门项目
+### Search Trending Repositories
 
 ```bash
 node scripts/github.js search <language> [limit]
 ```
 
-- `language`: 编程语言名称，如 `elixir`, `javascript`, `python`
-- `limit`: 返回结果数量，默认 10
+- `language`: language name, e.g. `elixir`, `javascript`, `python`
+- `limit`: number of results to return, default is 10
 
-### 查询仓库详情
+### Get Repository Details
 
 ```bash
 node scripts/github.js repo <owner>/<repo>
 ```
 
-- `owner/repo`: 仓库全名，如 `phoenixframework/phoenix`
+- `owner/repo`: full repository name, e.g. `phoenixframework/phoenix`
 
-## 输出格式
+## Output Format
 
-- 搜索结果：JSON 数组，包含仓库名称、描述、stars、语言、URL 等
-- 仓库详情：JSON 对象，包含完整仓库信息
-- 若调用失败，将打印错误信息
+- Search: JSON array with repository name, description, stars, language, URL, etc.
+- Repo detail: JSON object with full repository metadata
+- Failure: error message
 
-## 示例
+## Examples
 
 ```bash
-# 搜索 Elixir 热门项目
+# Search trending Elixir repositories
 node scripts/github.js search elixir 10
 
-# 搜索 JavaScript 热门项目
+# Search trending JavaScript repositories
 node scripts/github.js search javascript 5
 
-# 查询 Phoenix 框架详情
+# Get Phoenix repository details
 node scripts/github.js repo phoenixframework/phoenix
 ```
 
-## 注意事项
+## Notes
 
-- 使用 GitHub 公开 API，有速率限制（每小时 60 次）
-- 不需要认证即可使用基本功能
-- 如需更高配额，可在脚本中配置 GitHub Token
+- Uses GitHub public APIs with rate limits (60 requests/hour without auth)
+- Authentication is not required for basic use
+- You can configure a GitHub token in the script for higher quota

@@ -8,7 +8,7 @@ defmodule LightAgent.Skills.RunCommandTest do
       definition = RunCommand.__skill_definition__()
 
       assert definition.name == "RunCommand"
-      assert definition.description == "提供运行命令能力的技能包"
+      assert definition.description == "Skill package for running shell commands."
       assert is_list(definition.tools)
     end
 
@@ -21,7 +21,7 @@ defmodule LightAgent.Skills.RunCommandTest do
         end)
 
       assert tool != nil
-      assert tool.description == "运行指定命令"
+      assert tool.description == "Run a shell command."
       assert tool.function == :run_command
     end
 
@@ -52,7 +52,7 @@ defmodule LightAgent.Skills.RunCommandTest do
         })
 
       assert is_binary(result)
-      assert String.contains?(result, "失败")
+      assert String.contains?(result, "failed")
     end
 
     test "executes run_command with complex command" do
