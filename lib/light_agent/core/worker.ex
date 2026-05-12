@@ -28,6 +28,15 @@ defmodule LightAgent.Core.Worker do
     GenServer.call(__MODULE__, {:run_agent_step, user_input}, 300_000)
   end
 
+  def run_agent_step_for_session(session_id, user_input \\ nil)
+      when is_binary(session_id) do
+    GenServer.call(
+      __MODULE__,
+      {:run_agent_step_for_session, session_id, user_input},
+      300_000
+    )
+  end
+
   def current_token_usage() do
     GenServer.call(__MODULE__, :current_token_usage)
   end
@@ -368,6 +377,50 @@ defmodule LightAgent.Core.Worker do
   end
 
   @impl true
+  def handle_call(
+        {:run_agent_step_for_session, session_id, user_input},
+        _from,
+        state
+      ) do
+    reply =
+      if Map.has_key?(state.sessions, session_id) do
+        case call_session(session_id, {:run_agent_step, user_input}, 300_000) do
+          {:ok, result} ->
+            Events.broadcast_session_updated(session_id, :history_updated)
+
+            Events.broadcast_sessions_changed(:updated, %{
+              session_id: session_id
+            })
+
+            result
+
+          {:error, :session_not_found} ->
+            step_usage =
+              Usage.build_step_usage(
+                nil,
+                Usage.default_token_usage_total()
+              )
+
+            {:done,
+             "Session does not exist. Select an available session and try again.",
+             step_usage}
+        end
+      else
+        step_usage =
+          Usage.build_step_usage(
+            nil,
+            Usage.default_token_usage_total()
+          )
+
+        {:done,
+         "Session does not exist. Select an available session and try again.",
+         step_usage}
+      end
+
+    {:reply, reply, state}
+  end
+
+  @impl true
   def handle_call({:run_agent_step, user_input}, _from, state) do
     reply =
       case call_session(
@@ -385,7 +438,8 @@ defmodule LightAgent.Core.Worker do
               Usage.default_token_usage_total()
             )
 
-          {:done, "Current session does not exist. Run /new before continuing.", step_usage}
+          {:done, "Current session does not exist. Run /new before continuing.",
+           step_usage}
       end
 
     Events.broadcast_session_updated(state.current_session_id, :history_updated)

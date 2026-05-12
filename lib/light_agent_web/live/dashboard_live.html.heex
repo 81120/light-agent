@@ -112,6 +112,53 @@
           </section>
 
           <section class="card detail-card">
+            <h2 class="card-title">Session Chat</h2>
+            <% chat_count = String.length(@chat_input || "") %>
+            <form
+              id="session-chat-form"
+              phx-submit="send_chat"
+              phx-change="chat_input"
+              class="chat-form"
+            >
+              <div class="chat-meta">
+                <span class="chat-meta-item">session=<%= @selected_session_id || "none" %></span>
+                <span class="chat-meta-item"><%= chat_count %>/4000</span>
+              </div>
+
+              <p id="session-chat-helper" class="chat-helper">Enter 换行，Cmd/Ctrl+Enter 发送</p>
+
+              <div class="chat-composer">
+                <textarea
+                  id="session-chat-input"
+                  name="chat[content]"
+                  rows="4"
+                  maxlength="4000"
+                  phx-hook="ChatComposerShortcut"
+                  placeholder="Send a message to this session"
+                  aria-invalid={not is_nil(@chat_error)}
+                  aria-describedby="session-chat-helper"
+                  disabled={@session_detail == nil or @chat_submitting}
+                ><%= @chat_input %></textarea>
+
+                <button
+                  id="session-chat-send"
+                  type="submit"
+                  class="chat-send-inside"
+                  disabled={@session_detail == nil or @chat_submitting}
+                >
+                  <%= if @chat_submitting, do: "Sending...", else: "Send" %>
+                </button>
+              </div>
+
+              <div :if={@chat_error} class="chat-alert dashboard-alert"><%= @chat_error %></div>
+
+              <div class="chat-actions">
+                <span :if={@chat_notice} class="chat-notice"><%= @chat_notice %></span>
+              </div>
+            </form>
+          </section>
+
+          <section class="card detail-card">
             <h2 class="card-title">Session History</h2>
             <div :if={@session_history == []} class="empty">No history data.</div>
             <% history_count = length(@session_history) %>
@@ -119,8 +166,29 @@
               <li :for={{msg, idx} <- Enum.with_index(@session_history)} class="history-item">
                 <span class="history-index"><%= history_count - idx %>.</span>
                 <div class="history-main">
-                  <span class="role-badge"><%= Map.get(msg, :role) || Map.get(msg, "role") %></span>
-                  <pre class="pre-block"><%= Map.get(msg, :content) || Map.get(msg, "content") || inspect(msg, pretty: true) %></pre>
+                  <% role = Map.get(msg, :role) || Map.get(msg, "role") || "unknown" %>
+                  <% role_name = if is_atom(role), do: Atom.to_string(role), else: to_string(role) %>
+                  <div class="history-item-head">
+                    <span
+                      class={[
+                        "role-badge",
+                        role_name == "user" && "role-user",
+                        role_name == "assistant" && "role-assistant",
+                        role_name == "system" && "role-system"
+                      ]}
+                    ><%= role_name %></span>
+                    <button
+                      id={"history-copy-#{idx}"}
+                      type="button"
+                      class="history-copy-btn"
+                      phx-hook="CopyHistoryItem"
+                      aria-label="Copy message"
+                      title="Copy message"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <pre class="pre-block history-content"><%= Map.get(msg, :content) || Map.get(msg, "content") || inspect(msg, pretty: true) %></pre>
                 </div>
               </li>
             </ol>

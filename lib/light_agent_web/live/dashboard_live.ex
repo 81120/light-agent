@@ -21,6 +21,10 @@ defmodule LightAgentWeb.DashboardLive do
       socket
       |> assign(:selected_session_id, selected_session_id)
       |> assign(:error, nil)
+      |> assign(:chat_input, "")
+      |> assign(:chat_error, nil)
+      |> assign(:chat_notice, nil)
+      |> assign(:chat_submitting, false)
       |> assign(:last_updated_at, DateTime.utc_now())
       |> load_dashboard_data()
 
@@ -34,7 +38,10 @@ defmodule LightAgentWeb.DashboardLive do
     socket =
       socket
       |> maybe_resubscribe_session(selected_session_id)
+      |> sync_system_session(selected_session_id)
       |> assign(:selected_session_id, selected_session_id)
+      |> assign(:chat_error, nil)
+      |> assign(:chat_notice, nil)
       |> load_session_data()
 
     {:noreply, socket}
@@ -42,13 +49,33 @@ defmodule LightAgentWeb.DashboardLive do
 
   @impl true
   def handle_event("select_session", %{"id" => session_id}, socket) do
-    socket =
-      socket
-      |> maybe_resubscribe_session(session_id)
-      |> assign(:selected_session_id, session_id)
-      |> load_session_data()
+    {:noreply,
+     push_patch(socket,
+       to: ~p"/dashboard?session_id=#{session_id}"
+     )}
+  end
 
-    {:noreply, socket}
+  @impl true
+  def handle_event("chat_input", %{"chat" => %{"content" => content}}, socket) do
+    {:noreply,
+     socket
+     |> assign(:chat_input, content)
+     |> assign(:chat_error, nil)
+     |> assign(:chat_notice, nil)}
+  end
+
+  @impl true
+  def handle_event(
+        "chat_shortcut_send",
+        %{"chat" => %{"content" => content}},
+        socket
+      ) do
+    {:noreply, submit_chat(socket, content)}
+  end
+
+  @impl true
+  def handle_event("send_chat", %{"chat" => %{"content" => content}}, socket) do
+    {:noreply, submit_chat(socket, content)}
   end
 
   @impl true
@@ -58,13 +85,7 @@ defmodule LightAgentWeb.DashboardLive do
 
   @impl true
   def handle_event("clear_selection", _params, socket) do
-    socket =
-      socket
-      |> maybe_resubscribe_session(nil)
-      |> assign(:selected_session_id, nil)
-      |> load_session_data()
-
-    {:noreply, socket}
+    {:noreply, push_patch(socket, to: ~p"/dashboard")}
   end
 
   @impl true
@@ -76,6 +97,65 @@ defmodule LightAgentWeb.DashboardLive do
   def handle_info(:poll, socket) do
     if connected?(socket), do: schedule_poll()
     {:noreply, refresh_dashboard(socket)}
+  end
+
+  defp submit_chat(socket, content) do
+    selected_session_id = socket.assigns.selected_session_id
+
+    socket =
+      socket
+      |> assign(:chat_submitting, true)
+      |> assign(:chat_error, nil)
+      |> assign(:chat_notice, nil)
+      |> assign(:chat_input, content)
+
+    cond do
+      is_nil(selected_session_id) ->
+        socket
+        |> assign(:chat_submitting, false)
+        |> assign(:chat_error, "Select a session before sending a message")
+
+      String.trim(content) == "" ->
+        socket
+        |> assign(:chat_submitting, false)
+        |> assign(:chat_error, "Message cannot be empty")
+
+      true ->
+        case Dashboard.send_session_message(selected_session_id, content) do
+          {:ok, {:done, _reply, _step_usage}} ->
+            socket
+            |> assign(:chat_submitting, false)
+            |> assign(:chat_input, "")
+            |> assign(:chat_error, nil)
+            |> assign(:chat_notice, "Message processed")
+            |> refresh_dashboard()
+            |> push_event("chat_clear_input", %{})
+
+          {:error, :session_not_found} ->
+            socket
+            |> assign(:chat_submitting, false)
+            |> assign(:chat_error, "Session not found or has been deleted")
+            |> load_session_data()
+
+          {:error, :empty_message} ->
+            socket
+            |> assign(:chat_submitting, false)
+            |> assign(:chat_error, "Message cannot be empty")
+
+          {:error, reason} ->
+            socket
+            |> assign(:chat_submitting, false)
+            |> assign(
+              :chat_error,
+              "Failed to send message: #{inspect(reason)}"
+            )
+
+          _ ->
+            socket
+            |> assign(:chat_submitting, false)
+            |> assign(:chat_error, "Failed to send message")
+        end
+    end
   end
 
   defp refresh_dashboard(socket) do
@@ -149,6 +229,21 @@ defmodule LightAgentWeb.DashboardLive do
       true ->
         subscribe_selected_session(selected_session_id)
         socket
+    end
+  end
+
+  defp sync_system_session(socket, nil), do: socket
+
+  defp sync_system_session(socket, session_id) when is_binary(session_id) do
+    case Dashboard.switch_session(session_id) do
+      :ok ->
+        socket
+
+      {:error, :session_not_found} ->
+        assign(socket, :error, "Session not found or has been deleted")
+
+      {:error, reason} ->
+        assign(socket, :error, "Failed to switch session: #{inspect(reason)}")
     end
   end
 end

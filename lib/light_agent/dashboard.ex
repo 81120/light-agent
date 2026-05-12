@@ -24,6 +24,31 @@ defmodule LightAgent.Dashboard do
 
   def get_session_history(_), do: {:error, :invalid_session_id}
 
+  def send_session_message(session_id, content)
+      when is_binary(session_id) and is_binary(content) do
+    trimmed = String.trim(content)
+
+    cond do
+      trimmed == "" ->
+        {:error, :empty_message}
+
+      Worker.session_detail(session_id) == {:error, :session_not_found} ->
+        {:error, :session_not_found}
+
+      true ->
+        {:ok, run_session_until_done(session_id, trimmed)}
+    end
+  end
+
+  def send_session_message(_session_id, _content),
+    do: {:error, :invalid_input}
+
+  def switch_session(session_id) when is_binary(session_id) do
+    Worker.switch_session(session_id)
+  end
+
+  def switch_session(_), do: {:error, :invalid_session_id}
+
   def get_effective_global_context do
     context_files =
       AgentPaths.context_file_paths()
@@ -105,6 +130,16 @@ defmodule LightAgent.Dashboard do
 
       {:error, _} ->
         nil
+    end
+  end
+
+  defp run_session_until_done(session_id, user_input) do
+    case Worker.run_agent_step_for_session(session_id, user_input) do
+      {:running, _tool_results, _step_usage} ->
+        run_session_until_done(session_id, nil)
+
+      {:done, _reply, _step_usage} = result ->
+        result
     end
   end
 end
