@@ -39,6 +39,7 @@ defmodule LightAgentWeb.DashboardLiveTest do
     assert html =~ "Session Chat"
     assert html =~ "id=\"session-chat-form\""
     assert html =~ "id=\"session-chat-input\""
+    assert html =~ "phx-disable-with=\"Thinking...\""
     assert html =~ "Enter 换行，Cmd/Ctrl+Enter 发送"
     assert html =~ "session=#{session_id}"
     assert html =~ "0/4000"

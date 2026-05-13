@@ -144,9 +144,10 @@
                   id="session-chat-send"
                   type="submit"
                   class="chat-send-inside"
+                  phx-disable-with="Thinking..."
                   disabled={@session_detail == nil or @chat_submitting}
                 >
-                  <%= if @chat_submitting, do: "Sending...", else: "Send" %>
+                  Send
                 </button>
               </div>
 

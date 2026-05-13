@@ -339,6 +339,10 @@ body {
   position: absolute;
   right: 12px;
   bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   appearance: none;
   border: 1px solid rgba(57, 204, 241, 0.72);
   background: linear-gradient(180deg, #8cecff 0%, #44d5f6 55%, #1fbde2 100%);
@@ -375,11 +379,28 @@ body {
   transform: translateY(0) scale(0.99);
 }
 
-.chat-send-inside:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+.chat-send-inside:disabled,
+.chat-send-inside.phx-submit-loading {
+  opacity: 0.58;
+  cursor: progress;
   transform: none;
-  filter: grayscale(0.12);
+  filter: grayscale(0.08);
+}
+
+.chat-send-inside.phx-submit-loading::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid rgba(6, 63, 79, 0.25);
+  border-top-color: rgba(6, 63, 79, 0.88);
+  animation: chat-send-spin 0.75s linear infinite;
+}
+
+@keyframes chat-send-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .chat-actions {
